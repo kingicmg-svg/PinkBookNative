@@ -40,34 +40,75 @@ async function request<T>(
 // ── Owner auth ─────────────────────────────────────────────────────────────
 export const OwnerApi = {
   register: (body: { name: string; email: string; password: string; phone?: string }) =>
-    request<{ user: any; token: string }>('/api/v1/auth/register', {
-      method: 'POST',
-      body: JSON.stringify(body),
-    }),
+    request<{ user: any; token: string }>('/api/v1/auth/register', { method: 'POST', body: JSON.stringify(body) }),
 
   login: (body: { email: string; password: string }) =>
-    request<{ user: any; token: string }>('/api/v1/auth/login', {
-      method: 'POST',
-      body: JSON.stringify(body),
-    }),
+    request<{ user: any; token: string }>('/api/v1/auth/login', { method: 'POST', body: JSON.stringify(body) }),
 
   me: (token: string) =>
     request<{ user: any }>('/api/v1/auth/me', {}, token),
 
+  forgotPassword: (email: string) =>
+    request<{ message: string }>('/api/v1/auth/forgot-password', { method: 'POST', body: JSON.stringify({ email }) }),
+
+  // ── Bookings ──
   bookings: (token: string, params?: string) =>
     request<{ bookings: any[] }>(`/api/v1/bookings${params || ''}`, {}, token),
 
-  clients: (token: string) =>
-    request<{ clients: any[] }>('/api/v1/clients', {}, token),
+  createBooking: (token: string, body: any) =>
+    request<{ booking: any }>('/api/v1/bookings', { method: 'POST', body: JSON.stringify(body) }, token),
 
-  services: (token: string) =>
-    request<{ settings: any }>('/api/v1/settings/get', {}, token),
+  updateBooking: (token: string, id: string, body: any) =>
+    request<{ booking: any }>(`/api/v1/bookings/${id}`, { method: 'PUT', body: JSON.stringify(body) }, token),
 
+  getBooking: (token: string, id: string) =>
+    request<{ booking: any }>(`/api/v1/bookings/${id}`, {}, token),
+
+  // ── Clients ──
+  clients: (token: string, params?: string) =>
+    request<{ clients: any[] }>(`/api/v1/clients${params || ''}`, {}, token),
+
+  createClient: (token: string, body: any) =>
+    request<{ client: any }>('/api/v1/clients', { method: 'POST', body: JSON.stringify(body) }, token),
+
+  updateClient: (token: string, id: string, body: any) =>
+    request<{ client: any }>(`/api/v1/clients/${id}`, { method: 'PUT', body: JSON.stringify(body) }, token),
+
+  getClient: (token: string, id: string) =>
+    request<{ client: any }>(`/api/v1/clients/${id}`, {}, token),
+
+  clientStats: (token: string, id: string) =>
+    request<{ stats: any }>(`/api/v1/clients/${id}/stats`, {}, token),
+
+  upcomingBirthdays: (token: string) =>
+    request<{ clients: any[] }>('/api/v1/clients/upcoming-birthdays', {}, token),
+
+  // ── Settings ──
   settings: (token: string) =>
     request<{ settings: any }>('/api/v1/settings/get', {}, token),
 
-  analytics: (token: string) =>
-    request<any>('/api/v1/analytics/overview', {}, token),
+  // ── Analytics ──
+  analyticsOverview: (token: string) =>
+    request<{ revenue: any; bookings: any; clients: any; averages: any }>('/api/v1/analytics/overview', {}, token),
+
+  analyticsByService: (token: string) =>
+    request<{ services: any[] }>('/api/v1/analytics/by-service', {}, token),
+
+  analyticsByPeriod: (token: string, period: 'week' | 'month' | 'year') =>
+    request<{ days: any[] }>(`/api/v1/analytics/by-period?period=${period}`, {}, token),
+
+  analyticsRetention: (token: string) =>
+    request<any>('/api/v1/analytics/retention', {}, token),
+
+  // ── Promos ──
+  listPromos: (token: string) =>
+    request<{ codes: any[] }>('/api/v1/promos', {}, token),
+
+  createPromo: (token: string, body: any) =>
+    request<{ code: any }>('/api/v1/promos', { method: 'POST', body: JSON.stringify(body) }, token),
+
+  deletePromo: (token: string, id: string) =>
+    request<{ success: boolean }>(`/api/v1/promos/${id}`, { method: 'DELETE' }, token),
 };
 
 // ── Client auth ────────────────────────────────────────────────────────────
@@ -147,8 +188,13 @@ export const SettingsApi = {
     request<{ settings: any }>('/api/v1/settings/get', {}, token),
 
   save: (token: string, settings: any) =>
-    request<{ settings: any }>('/api/v1/settings/save', {
-      method: 'POST',
-      body: JSON.stringify({ settings }),
-    }, token),
+    request<{ settings: any }>('/api/v1/settings/save', { method: 'POST', body: JSON.stringify({ settings }) }, token),
 };
+
+// ── Notification preferences ───────────────────────────────────────────────
+export const NotifPrefApi = {
+  // Notification *preferences* live in settings (notifPrefs key)
+  // We use SettingsApi.get / SettingsApi.save for prefs persistence
+  // This namespace is for future dedicated endpoint
+};
+

@@ -116,6 +116,13 @@ export default function SettingsScreen() {
           <Row icon="⭐" label="Reviews"         sub="Your client reviews and rating"      onPress={() => router.push('/owner/reviews')} />
         </View>
 
+        {/* Business */}
+        <Text style={s.section}>Business</Text>
+        <View style={s.group}>
+          <Row icon="🕐" label="Working Hours"    sub="Set your availability by day"       onPress={() => router.push('/owner/availability')} />
+          <Row icon="🔔" label="Notifications"    sub="Email and SMS preferences"          onPress={() => router.push('/owner/notifications')} />
+        </View>
+
         {/* Plans */}
         <Text style={s.section}>Plans & Billing</Text>
         <View style={s.group}>

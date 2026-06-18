@@ -40,6 +40,8 @@ export default function RootLayout() {
         <Stack.Screen name="owner/policies"        options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="owner/reviews"         options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="owner/edit-profile"    options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="owner/notifications"   options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="owner/availability"    options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="consumer/manage-booking" options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="consumer/policies"     options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="booking/[slug]"        options={{ animation: 'slide_from_bottom', presentation: 'modal' }} />
