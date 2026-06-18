@@ -1,0 +1,34 @@
+{
+  "cli": {
+    "version": ">= 5.0.0",
+    "promptToConfigurePushNotifications": false
+  },
+  "build": {
+    "preview": {
+      "ios": {
+        "buildType": "simulator"
+      }
+    },
+    "preview2": {
+      "ios": {
+        "buildType": "archive"
+      }
+    },
+    "production": {
+      "ios": {
+        "buildType": "archive",
+        "enterpriseProvisioning": "adhoc"
+      }
+    }
+  },
+  "submit": {
+    "production": {
+      "ios": {
+        "ascAppId": "",
+        "appleId": "",
+        "appleTeamId": "",
+        "appleProvisioningProfileType": "AppStore"
+      }
+    }
+  }
+}

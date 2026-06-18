@@ -1,0 +1,65 @@
+import * as Camera from 'expo-camera';
+import * as FileSystem from 'expo-file-system';
+import { CameraView, CameraType } from 'expo-camera';
+
+export class CameraService {
+  private static cameraRef: any = null;
+
+  static async requestPermissions() {
+    const { status } = await Camera.requestCameraPermissions();
+    return status === 'granted';
+  }
+
+  static async capturePhoto(): Promise<string> {
+    if (!this.cameraRef) {
+      throw new Error('Camera not initialized');
+    }
+
+    try {
+      const photo = await this.cameraRef.takePictureAsync({
+        quality: 0.8,
+        base64: false,
+      });
+
+      // Save to permanent storage
+      const filename = `photo-${Date.now()}.jpg`;
+      const path = `${FileSystem.documentDirectory}${filename}`;
+      await FileSystem.copyAsync({
+        from: photo.uri,
+        to: path,
+      });
+
+      return path;
+    } catch (error) {
+      throw new Error(`Failed to capture photo: ${error}`);
+    }
+  }
+
+  static async getVideoStream() {
+    if (!this.cameraRef) {
+      throw new Error('Camera not initialized');
+    }
+
+    // Return stream metadata for processing
+    return {
+      type: 'video',
+      format: 'h264',
+      dimensions: { width: 1920, height: 1440 },
+    };
+  }
+
+  static setCameraRef(ref: any) {
+    this.cameraRef = ref;
+  }
+
+  static async getBase64Photo(uri: string): Promise<string> {
+    try {
+      const base64 = await FileSystem.readAsStringAsync(uri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+      return base64;
+    } catch (error) {
+      throw new Error(`Failed to read photo: ${error}`);
+    }
+  }
+}
