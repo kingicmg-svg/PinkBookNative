@@ -1,19 +1,33 @@
-const tintColorLight = '#2f95dc';
-const tintColorDark = '#fff';
+export const Colors = {
+  rose:      '#C85D7A',
+  roseDark:  '#A84A64',
+  pink:      '#F2A7BB',
+  pinkLight: '#FDE8EF',
+  cream:     '#FDF6F0',
+  charcoal:  '#1C1C1E',
+  mid:       '#5C5058',
+  soft:      '#9B8990',
+  white:     '#FFFFFF',
+  gold:      '#C9A96E',
+  error:     '#D32F2F',
+  success:   '#1A9E4A',
+  border:    'rgba(242,167,187,0.25)',
+  shadow:    'rgba(28,28,30,0.10)',
+};
 
-export default {
-  light: {
-    text: '#000',
-    background: '#fff',
-    tint: tintColorLight,
-    tabIconDefault: '#ccc',
-    tabIconSelected: tintColorLight,
+// Tab bar tokens
+export const TabBar = {
+  owner: {
+    active:   Colors.rose,
+    inactive: Colors.soft,
+    bg:       Colors.white,
   },
-  dark: {
-    text: '#fff',
-    background: '#000',
-    tint: tintColorDark,
-    tabIconDefault: '#ccc',
-    tabIconSelected: tintColorDark,
+  consumer: {
+    active:   Colors.rose,
+    inactive: Colors.soft,
+    bg:       Colors.white,
   },
 };
+
+export default Colors;
+

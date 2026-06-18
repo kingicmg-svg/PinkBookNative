@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { WebView, WebViewMessageEvent } from 'react-native-webview';
-import { StyleSheet, View, useSafeAreaInsets } from 'react-native';
+import { StyleSheet, View, TouchableOpacity, Text, SafeAreaView, PanResponder, Animated, Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CameraService } from '../services/CameraService';
 import { AIService } from '../services/AIService';
 import { StorageService } from '../services/StorageService';
@@ -23,6 +24,8 @@ export const PinkBookWebView: React.FC<{ url: string }> = ({ url }) => {
   const webViewRef = useRef<WebView>(null);
   const insets = useSafeAreaInsets();
   const [sessionReady, setSessionReady] = useState(false);
+  const [canGoBack, setCanGoBack] = useState(false);
+  const [canGoForward, setCanGoForward] = useState(false);
 
   useEffect(() => {
     // Restore session from storage on load
@@ -166,17 +169,29 @@ export const PinkBookWebView: React.FC<{ url: string }> = ({ url }) => {
   `;
 
   return (
-    <View
-      style={[
-        styles.container,
-        {
-          paddingTop: insets.top,
-          paddingBottom: insets.bottom,
-          paddingLeft: insets.left,
-          paddingRight: insets.right,
-        },
-      ]}
-    >
+    <SafeAreaView style={styles.safeArea}>
+      <View style={[styles.header, { paddingTop: insets.top }]}>
+        <TouchableOpacity
+          style={styles.navButton}
+          onPress={() => webViewRef.current?.goBack()}
+          disabled={!canGoBack}
+        >
+          <Text style={[styles.navButtonText, !canGoBack && styles.navButtonTextDisabled]}>←</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.navButton}
+          onPress={() => webViewRef.current?.goForward()}
+          disabled={!canGoForward}
+        >
+          <Text style={[styles.navButtonText, !canGoForward && styles.navButtonTextDisabled]}>→</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.navButton}
+          onPress={() => webViewRef.current?.reload()}
+        >
+          <Text style={styles.navButtonText}>⟳</Text>
+        </TouchableOpacity>
+      </View>
       <WebView
         ref={webViewRef}
         source={{ uri: url }}
@@ -187,14 +202,44 @@ export const PinkBookWebView: React.FC<{ url: string }> = ({ url }) => {
         cacheEnabled={true}
         originWhitelist={['*']}
         startInLoadingState={true}
-        scalePageToFit={true}
+        scalesPageToFit={true}
         allowsInlineMediaPlayback={true}
+        onNavigationStateChange={(state) => {
+          setCanGoBack(state.canGoBack);
+          setCanGoForward(state.canGoForward);
+        }}
       />
-    </View>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
+  header: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  navButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    marginRight: 8,
+    borderRadius: 8,
+    backgroundColor: '#f5f5f5',
+  },
+  navButtonText: {
+    fontSize: 20,
+    color: '#000',
+  },
+  navButtonTextDisabled: {
+    color: '#ccc',
+  },
   container: {
     flex: 1,
   },

@@ -12,7 +12,8 @@ export class CameraService {
 
   static async capturePhoto(): Promise<string> {
     if (!this.cameraRef) {
-      throw new Error('Camera not initialized');
+      // Graceful failure for simulator without CameraView mounted
+      throw new Error('Camera not available: CameraView not mounted. Camera capture requires a physical device or a CameraView component in the app.');
     }
 
     try {

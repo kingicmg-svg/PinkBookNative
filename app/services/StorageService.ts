@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export class StorageService {
   private static SESSION_KEY = '@pinkbook_session';
+  private static TOKEN_KEY   = '@pinkbook_token';
   private static CACHE_PREFIX = '@pinkbook_cache_';
 
   static async set(key: string, value: any): Promise<void> {
@@ -87,5 +88,27 @@ export class StorageService {
     } catch (error) {
       throw new Error(`Get all keys failed: ${error}`);
     }
+  }
+
+  // ── JWT token (role-based routing) ──────────────────────────────────────
+  static async saveToken(token: string, role: string): Promise<void> {
+    await AsyncStorage.setItem(
+      this.TOKEN_KEY,
+      JSON.stringify({ token, role, savedAt: Date.now() }),
+    );
+  }
+
+  static async getToken(): Promise<{ token: string; role: string } | null> {
+    const raw = await AsyncStorage.getItem(this.TOKEN_KEY);
+    if (!raw) return null;
+    try {
+      return JSON.parse(raw) as { token: string; role: string };
+    } catch {
+      return null;
+    }
+  }
+
+  static async removeToken(): Promise<void> {
+    await AsyncStorage.removeItem(this.TOKEN_KEY);
   }
 }

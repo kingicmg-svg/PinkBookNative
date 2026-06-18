@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React from 'react';
 import { AppState, AppStateStatus } from 'react-native';
 import { StorageService } from '../services/StorageService';
 
@@ -11,8 +11,8 @@ interface SessionState {
 
 export class SessionManager {
   private static instance: SessionManager;
-  private appState = useRef(AppState.currentState);
-  private sessionTimer: NodeJS.Timeout | null = null;
+  private appState: AppStateStatus = AppState.currentState;
+  private sessionTimer: ReturnType<typeof setInterval> | null = null;
   private listeners: Set<(state: SessionState) => void> = new Set();
   private currentSession: SessionState | null = null;
 
@@ -40,14 +40,14 @@ export class SessionManager {
   }
 
   private handleAppStateChange = async (nextAppState: AppStateStatus) => {
-    if (this.appState.current !== nextAppState) {
+    if (this.appState !== nextAppState) {
       if (nextAppState === 'background') {
         await this.onAppBackground();
       } else if (nextAppState === 'active') {
         await this.onAppResume();
       }
 
-      this.appState.current = nextAppState;
+      this.appState = nextAppState;
     }
   };
 
@@ -127,6 +127,7 @@ export class SessionManager {
 
   destroy() {
     this.stopSessionHeartbeat();
+    // @ts-ignore - AppState.removeEventListener exists at runtime
     AppState.removeEventListener('change', this.handleAppStateChange);
   }
 }
