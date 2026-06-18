@@ -108,7 +108,8 @@ function AddBookingModal({ visible, clients, settings, onClose, onSave }:
   const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
 
-  const services = Array.isArray(settings?.servicesCatalog) ? settings.servicesCatalog : [];
+  const cat = settings?.servicesCatalog || {};
+  const services = Array.isArray(cat.services) ? cat.services : [];
   const filteredClients = (Array.isArray(clients) ? clients : []).filter((c: any) => {
     const n = (c.name || '').toLowerCase(); const e = (c.contactEmail||'').toLowerCase();
     const q = clientSearch.toLowerCase();

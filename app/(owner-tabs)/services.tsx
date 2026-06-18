@@ -277,8 +277,10 @@ export default function ServicesScreen() {
       const r = await OwnerApi.settings(token);
       const st = r.settings || {};
       setSettings(st);
-      setServices(Array.isArray(st.servicesCatalog) ? st.servicesCatalog : []);
-      setAddons(Array.isArray(st.addonsCatalog) ? st.addonsCatalog : []);
+      // servicesCatalog is stored as { services: [...], addons: [...], ownerId, profession }
+      const cat = st.servicesCatalog || {};
+      setServices(Array.isArray(cat.services) ? cat.services : []);
+      setAddons(Array.isArray(cat.addons) ? cat.addons : []);
     } catch {}
     // Load promos separately
     try {
@@ -298,12 +300,19 @@ export default function ServicesScreen() {
     finally { setSaving(false); }
   };
 
+  // Helper: build the merged servicesCatalog object (matches PWA schema)
+  const buildCatalog = (newServices: any[], newAddons: any[]) => ({
+    ...(settings?.servicesCatalog || {}),
+    services: newServices,
+    addons: newAddons,
+  });
+
   // ── Services CRUD ──
   const saveService = async (svc: any) => {
     const updated = editSvc ? services.map(s => s.id===svc.id ? svc : s) : [...services, svc];
     setServices(updated);
     setSvcModal(false); setEditSvc(null);
-    await saveSettings({ servicesCatalog: updated });
+    await saveSettings({ servicesCatalog: buildCatalog(updated, addons) });
   };
   const deleteService = (id: string) => {
     Alert.alert('Delete Service', 'Remove this service from your catalog?', [
@@ -311,14 +320,14 @@ export default function ServicesScreen() {
       { text:'Delete', style:'destructive', onPress: async () => {
         const updated = services.filter(s => s.id !== id);
         setServices(updated);
-        await saveSettings({ servicesCatalog: updated });
+        await saveSettings({ servicesCatalog: buildCatalog(updated, addons) });
       }},
     ]);
   };
   const toggleService = async (id: string, visible: boolean) => {
     const updated = services.map(s => s.id===id ? { ...s, visible } : s);
     setServices(updated);
-    await saveSettings({ servicesCatalog: updated });
+    await saveSettings({ servicesCatalog: buildCatalog(updated, addons) });
   };
 
   // ── Add-ons CRUD ──
@@ -326,14 +335,14 @@ export default function ServicesScreen() {
     const updated = editAddon ? addons.map(a => a.id===addon.id ? addon : a) : [...addons, addon];
     setAddons(updated);
     setAddonModal(false); setEditAddon(null);
-    await saveSettings({ addonsCatalog: updated });
+    await saveSettings({ servicesCatalog: buildCatalog(services, updated) });
   };
   const deleteAddon = (id: string) => {
     Alert.alert('Delete Add-on','Remove this add-on?',[
       { text:'Cancel', style:'cancel' },
       { text:'Delete', style:'destructive', onPress: async () => {
         const updated = addons.filter(a => a.id!==id);
-        setAddons(updated); await saveSettings({ addonsCatalog: updated });
+        setAddons(updated); await saveSettings({ servicesCatalog: buildCatalog(services, updated) });
       }},
     ]);
   };

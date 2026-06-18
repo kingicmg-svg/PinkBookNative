@@ -75,7 +75,9 @@ export default function BookingScreen() {
       if (biz.owner_id) {
         BookingApi.settings(biz.owner_id).then(s => {
           setSettings(s);
-          setServices(s?.servicesCatalog || s?.settings?.servicesCatalog || []);
+          // servicesCatalog is { services: [...], addons: [...] }
+          const cat = s?.servicesCatalog || {};
+          setServices(Array.isArray(cat.services) ? cat.services : []);
         }).catch(() => {});
       }
     }).catch(() => {}).finally(() => setLoadingBiz(false));
