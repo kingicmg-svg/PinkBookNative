@@ -33,6 +33,16 @@ export default function RootLayout() {
         <Stack.Screen name="auth/owner-register" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
         <Stack.Screen name="auth/client-login"   options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
         <Stack.Screen name="auth/client-register" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
+        <Stack.Screen name="auth/forgot-password"  options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
+        <Stack.Screen name="owner/brand-studio"    options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="owner/upgrade"         options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="owner/help"            options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="owner/policies"        options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="owner/reviews"         options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="owner/edit-profile"    options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="consumer/manage-booking" options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="consumer/policies"     options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="booking/[slug]"        options={{ animation: 'slide_from_bottom', presentation: 'modal' }} />
       </Stack>
     </SafeAreaProvider>
   );

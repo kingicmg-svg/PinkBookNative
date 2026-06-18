@@ -80,6 +80,9 @@ export default function ClientLoginScreen() {
         <TouchableOpacity style={styles.link} onPress={() => router.replace('/auth/client-register')}>
           <Text style={styles.linkText}>New here? Create a free account →</Text>
         </TouchableOpacity>
+        <TouchableOpacity style={[styles.link, { marginTop: 12 }]} onPress={() => router.push('/auth/forgot-password')}>
+          <Text style={[styles.linkText, { color: Colors.soft }]}>Forgot password?</Text>
+        </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>
   );

@@ -1,120 +1,174 @@
 import React, { useEffect, useState } from 'react';
-import {
-  View, Text, StyleSheet, TouchableOpacity,
-  ScrollView, ActivityIndicator, Alert,
-} from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Share } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../hooks/useAuth';
-import { OwnerApi } from '../services/ApiService';
+import { OwnerApi, SettingsApi } from '../services/ApiService';
 import Colors from '../../constants/Colors';
 
-function initials(name: string) {
-  return (name || 'U').split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+const TIER_META: Record<string, { label: string; color: string; emoji: string }> = {
+  starter:      { label: 'Starter',      color: Colors.soft,     emoji: '🌸' },
+  pro:          { label: 'Pro',          color: Colors.rose,     emoji: '💜' },
+  salon:        { label: 'Salon',        color: '#7C3AED',       emoji: '👑' },
+  studio_elite: { label: 'Studio Elite', color: Colors.charcoal, emoji: '⭐' },
+};
+
+interface RowProps { icon: string; label: string; sub?: string; onPress: () => void; danger?: boolean; badge?: string; }
+function Row({ icon, label, sub, onPress, danger, badge }: RowProps) {
+  return (
+    <TouchableOpacity style={s.row} onPress={onPress}>
+      <View style={s.rowIcon}><Text style={{ fontSize: 18 }}>{icon}</Text></View>
+      <View style={s.rowContent}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <Text style={[s.rowLabel, danger && { color: Colors.error }]}>{label}</Text>
+          {!!badge && <View style={s.badge}><Text style={s.badgeTxt}>{badge}</Text></View>}
+        </View>
+        {!!sub && <Text style={s.rowSub}>{sub}</Text>}
+      </View>
+      {!danger && <Text style={s.chevron}>›</Text>}
+    </TouchableOpacity>
+  );
 }
 
 export default function SettingsScreen() {
-  const insets   = useSafeAreaInsets();
-  const router   = useRouter();
+  const insets = useSafeAreaInsets();
+  const router = useRouter();
   const { token, signOut } = useAuth();
-  const [user, setUser]   = useState<any>(null);
+  const [user, setUser] = useState<any>(null);
+  const [settings, setSettings] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!token) return;
-    OwnerApi.me(token)
-      .then(res => setUser(res.user))
-      .catch(() => {})
-      .finally(() => setLoading(false));
+    Promise.all([OwnerApi.me(token), SettingsApi.get(token)]).then(([meRes, stRes]) => {
+      setUser(meRes.user || {});
+      setSettings(stRes?.settings || {});
+    }).catch(() => {}).finally(() => setLoading(false));
   }, [token]);
 
-  const handleSignOut = () => {
-    Alert.alert('Sign out', 'Are you sure you want to sign out?', [
+  const tier = user?.subscription_tier || user?.tier || settings?.subscription_tier || 'starter';
+  const tierMeta = TIER_META[tier] || TIER_META.starter;
+  const slug = settings?.bookingSlug || settings?.booking_slug || '';
+  const bookingLink = slug ? `pinkbook.app/${slug}` : null;
+
+  const shareLink = async () => {
+    if (!bookingLink) return;
+    await Share.share({ message: `Book with me on PinkBook: https://${bookingLink}` });
+  };
+
+  const confirmSignOut = () => {
+    Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
       { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Sign out',
-        style: 'destructive',
-        onPress: async () => {
-          await signOut();
-          router.replace('/');
-        },
-      },
+      { text: 'Sign Out', style: 'destructive', onPress: async () => { await signOut(); router.replace('/'); } },
     ]);
   };
 
-  const name  = user?.name || user?.email || '—';
+  if (loading) return <View style={[s.center, { paddingTop: insets.top }]}><ActivityIndicator color={Colors.rose} size="large" /></View>;
+
+  const name = settings?.studioName || user?.name || 'My Studio';
   const email = user?.email || '';
+  const city  = settings?.city || '';
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <View style={styles.header}>
-        <Text style={styles.heading}>Settings</Text>
-      </View>
+    <View style={[s.container, { paddingTop: insets.top }]}>
+      <View style={s.topBar}><Text style={s.pageTitle}>Settings</Text></View>
+      <ScrollView contentContainerStyle={s.scroll}>
 
-      <ScrollView contentContainerStyle={styles.scroll}>
-        {loading ? (
-          <ActivityIndicator color={Colors.rose} style={{ marginTop: 40 }} />
-        ) : (
-          <View style={styles.profile}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>{initials(name)}</Text>
+        {/* Profile card */}
+        <View style={s.profileCard}>
+          <View style={s.avatar}><Text style={s.avatarTxt}>{(name[0] || '?').toUpperCase()}</Text></View>
+          <View style={{ flex: 1 }}>
+            <Text style={s.profileName}>{name}</Text>
+            {!!email && <Text style={s.profileEmail}>{email}</Text>}
+            {!!city  && <Text style={s.profileCity}>📍 {city}</Text>}
+          </View>
+          <View style={[s.tierBadge, { backgroundColor: tierMeta.color + '15', borderColor: tierMeta.color + '40' }]}>
+            <Text style={{ fontSize: 12 }}>{tierMeta.emoji}</Text>
+            <Text style={[s.tierTxt, { color: tierMeta.color }]}>{tierMeta.label}</Text>
+          </View>
+        </View>
+
+        {/* Booking link */}
+        {!!bookingLink && (
+          <View style={s.linkCard}>
+            <View style={{ flex: 1 }}>
+              <Text style={s.linkLabel}>Your Booking Link</Text>
+              <Text style={s.linkUrl}>{bookingLink}</Text>
             </View>
-            <Text style={styles.profileName}>{name}</Text>
-            <Text style={styles.profileEmail}>{email}</Text>
+            <TouchableOpacity style={s.shareBtn} onPress={shareLink}>
+              <Text style={s.shareBtnTxt}>Share</Text>
+            </TouchableOpacity>
           </View>
         )}
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Account</Text>
-          <TouchableOpacity style={styles.row}>
-            <Text style={styles.rowLabel}>Edit Profile</Text>
-            <Text style={styles.rowArrow}>›</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.row}>
-            <Text style={styles.rowLabel}>Notifications</Text>
-            <Text style={styles.rowArrow}>›</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.row}>
-            <Text style={styles.rowLabel}>Business Settings</Text>
-            <Text style={styles.rowArrow}>›</Text>
-          </TouchableOpacity>
+        {/* Account */}
+        <Text style={s.section}>Account</Text>
+        <View style={s.group}>
+          <Row icon="✏️" label="Edit Profile"    sub="Name, bio, city, category"         onPress={() => router.push('/owner/edit-profile')} />
+          <Row icon="🔑" label="Change Password" sub="Update your login password"         onPress={() => router.push('/auth/forgot-password')} />
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Support</Text>
-          <TouchableOpacity style={styles.row}>
-            <Text style={styles.rowLabel}>Help Center</Text>
-            <Text style={styles.rowArrow}>›</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.row}>
-            <Text style={styles.rowLabel}>Contact Support</Text>
-            <Text style={styles.rowArrow}>›</Text>
-          </TouchableOpacity>
+        {/* Brand */}
+        <Text style={s.section}>Brand</Text>
+        <View style={s.group}>
+          <Row icon="🎨" label="Brand Studio"    sub="Identity, colors, fonts, voice"     onPress={() => router.push('/owner/brand-studio')}
+            badge={tier === 'starter' ? 'Pro' : undefined} />
+          <Row icon="⭐" label="Reviews"         sub="Your client reviews and rating"      onPress={() => router.push('/owner/reviews')} />
         </View>
 
-        <TouchableOpacity style={styles.signOutBtn} onPress={handleSignOut}>
-          <Text style={styles.signOutText}>Sign Out</Text>
-        </TouchableOpacity>
+        {/* Plans */}
+        <Text style={s.section}>Plans & Billing</Text>
+        <View style={s.group}>
+          <Row icon="💜" label="Plans & Pricing"  sub={`You're on ${tierMeta.label}`}     onPress={() => router.push('/owner/upgrade')} />
+        </View>
+
+        {/* Support */}
+        <Text style={s.section}>Support</Text>
+        <View style={s.group}>
+          <Row icon="❓" label="Help Center"     sub="FAQs and how-tos"                   onPress={() => router.push('/owner/help')} />
+          <Row icon="📄" label="Terms & Privacy" sub="Legal policies"                     onPress={() => router.push('/owner/policies')} />
+        </View>
+
+        {/* Sign Out */}
+        <View style={[s.group, { marginTop: 8 }]}>
+          <Row icon="🚪" label="Sign Out" onPress={confirmSignOut} danger />
+        </View>
+
+        <Text style={s.version}>PinkBook v1.0  ·  pinkbook.app</Text>
+        <View style={{ height: 40 }} />
       </ScrollView>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container:    { flex: 1, backgroundColor: Colors.cream },
-  header:       { paddingHorizontal: 22, paddingTop: 18, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: Colors.border },
-  heading:      { fontSize: 26, fontWeight: '800', color: Colors.charcoal },
-  scroll:       { padding: 20 },
-  profile:      { alignItems: 'center', marginBottom: 28 },
-  avatar:       { width: 72, height: 72, borderRadius: 36, backgroundColor: Colors.pinkLight, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
-  avatarText:   { fontSize: 22, fontWeight: '700', color: Colors.rose },
-  profileName:  { fontSize: 18, fontWeight: '700', color: Colors.charcoal },
-  profileEmail: { fontSize: 13, color: Colors.soft, marginTop: 2 },
-  section:      { backgroundColor: Colors.white, borderRadius: 16, marginBottom: 16, overflow: 'hidden' },
-  sectionTitle: { fontSize: 11, fontWeight: '700', color: Colors.soft, textTransform: 'uppercase', letterSpacing: 0.8, paddingHorizontal: 16, paddingTop: 14, paddingBottom: 6 },
-  row:          { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14, borderTopWidth: 1, borderTopColor: Colors.border },
-  rowLabel:     { fontSize: 14, color: Colors.charcoal, fontWeight: '500' },
-  rowArrow:     { fontSize: 18, color: Colors.soft },
-  signOutBtn:   { backgroundColor: Colors.white, borderRadius: 14, padding: 16, alignItems: 'center', marginTop: 8, borderWidth: 1, borderColor: Colors.error + '40' },
-  signOutText:  { color: Colors.error, fontSize: 14, fontWeight: '700' },
+const s = StyleSheet.create({
+  container:   { flex: 1, backgroundColor: Colors.cream },
+  center:      { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.cream },
+  topBar:      { paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  pageTitle:   { fontSize: 22, fontWeight: '900', color: Colors.charcoal, fontFamily: 'Georgia' },
+  scroll:      { padding: 16, gap: 2 },
+  profileCard: { backgroundColor: Colors.white, borderRadius: 16, padding: 16, flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderColor: Colors.border, marginBottom: 10 },
+  avatar:      { width: 52, height: 52, borderRadius: 26, backgroundColor: Colors.pinkLight, alignItems: 'center', justifyContent: 'center' },
+  avatarTxt:   { fontSize: 22, fontWeight: '800', color: Colors.rose },
+  profileName: { fontSize: 16, fontWeight: '800', color: Colors.charcoal },
+  profileEmail:{ fontSize: 12, color: Colors.soft, marginTop: 2 },
+  profileCity: { fontSize: 12, color: Colors.soft, marginTop: 2 },
+  tierBadge:   { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1 },
+  tierTxt:     { fontSize: 11, fontWeight: '800' },
+  linkCard:    { backgroundColor: Colors.charcoal, borderRadius: 14, padding: 16, flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 10 },
+  linkLabel:   { fontSize: 10, fontWeight: '700', color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 4 },
+  linkUrl:     { fontSize: 13, fontWeight: '700', color: Colors.pink },
+  shareBtn:    { backgroundColor: Colors.rose, borderRadius: 999, paddingHorizontal: 16, paddingVertical: 8 },
+  shareBtnTxt: { color: Colors.white, fontWeight: '800', fontSize: 13 },
+  section:     { fontSize: 11, fontWeight: '800', letterSpacing: 1, textTransform: 'uppercase', color: Colors.rose, paddingHorizontal: 4, marginTop: 20, marginBottom: 8 },
+  group:       { backgroundColor: Colors.white, borderRadius: 16, borderWidth: 1, borderColor: Colors.border, overflow: 'hidden' },
+  row:         { flexDirection: 'row', alignItems: 'center', padding: 14, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  rowIcon:     { width: 34, height: 34, borderRadius: 10, backgroundColor: Colors.pinkLight + '50', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+  rowContent:  { flex: 1 },
+  rowLabel:    { fontSize: 14, fontWeight: '700', color: Colors.charcoal },
+  rowSub:      { fontSize: 12, color: Colors.soft, marginTop: 2 },
+  badge:       { backgroundColor: Colors.rose, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999 },
+  badgeTxt:    { fontSize: 10, fontWeight: '800', color: Colors.white },
+  chevron:     { fontSize: 22, color: Colors.soft, fontWeight: '300' },
+  version:     { textAlign: 'center', fontSize: 11, color: Colors.soft, marginTop: 24 },
 });

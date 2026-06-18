@@ -1,30 +1,26 @@
 import React, { useEffect, useState } from 'react';
-import {
-  View, Text, StyleSheet, TouchableOpacity,
-  ActivityIndicator, ScrollView, Alert,
-} from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, TextInput, ActivityIndicator, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../hooks/useAuth';
 import { ClientApi } from '../services/ApiService';
-import Colors from '../../constants/Colors';
 
-function initials(first: string, last: string) {
-  return `${(first[0] || '').toUpperCase()}${(last[0] || '').toUpperCase()}` || '?';
-}
+const D = {
+  bgBase:'#110A0E', bgCard:'#1A1014', bgElevated:'#221520',
+  pink:'#D4417A', textPrimary:'#F5EEF0', textSec:'#9E8A90', textMuted:'#5C4A52',
+  border:'rgba(212,65,122,0.15)', white:'#FFFFFF',
+};
 
-function UnauthState({ onSignIn, onSignUp }: { onSignIn: () => void; onSignUp: () => void }) {
+function Row({ icon, label, sub, onPress, danger }: { icon: string; label: string; sub?: string; onPress: () => void; danger?: boolean }) {
   return (
-    <View style={styles.unauthCenter}>
-      <Text style={styles.unauthHeading}>Your Profile</Text>
-      <Text style={styles.unauthSub}>Sign in to manage your bookings, preferences, and account.</Text>
-      <TouchableOpacity style={styles.signInBtn} onPress={onSignIn}>
-        <Text style={styles.signInText}>Sign In</Text>
-      </TouchableOpacity>
-      <TouchableOpacity style={styles.signUpBtn} onPress={onSignUp}>
-        <Text style={styles.signUpText}>Create Account</Text>
-      </TouchableOpacity>
-    </View>
+    <TouchableOpacity style={s.row} onPress={onPress}>
+      <View style={s.rowIcon}><Text style={{ fontSize: 18 }}>{icon}</Text></View>
+      <View style={{ flex: 1 }}>
+        <Text style={[s.rowLabel, danger && { color: '#D32F2F' }]}>{label}</Text>
+        {!!sub && <Text style={s.rowSub}>{sub}</Text>}
+      </View>
+      {!danger && <Text style={s.chevron}>›</Text>}
+    </TouchableOpacity>
   );
 }
 
@@ -32,120 +28,138 @@ export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { token, signOut } = useAuth();
-  const [client, setClient] = useState<any>(null);
+  const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName]   = useState('');
+  const [phone, setPhone]         = useState('');
 
   useEffect(() => {
     if (!token) { setLoading(false); return; }
-    ClientApi.me(token)
-      .then(res => setClient((res as any).client || (res as any).user || res))
-      .catch(() => {})
-      .finally(() => setLoading(false));
+    ClientApi.me(token).then(r => {
+      const u = r.client || (r as any).user || r;
+      setUser(u);
+      setFirstName(u.first_name || u.name?.split(' ')[0] || '');
+      setLastName(u.last_name || u.name?.split(' ').slice(1).join(' ') || '');
+      setPhone(u.phone || '');
+    }).catch(() => {}).finally(() => setLoading(false));
   }, [token]);
 
-  const handleSignOut = () => {
-    Alert.alert('Sign out', 'Are you sure?', [
+  const save = async () => {
+    if (!token) return;
+    setSaving(true);
+    try {
+      await ClientApi.updateProfile(token, { first_name: firstName, last_name: lastName, phone });
+      setUser((u: any) => ({ ...u, first_name: firstName, last_name: lastName, phone }));
+      setEditing(false);
+    } catch (e: any) { Alert.alert('Error', e.message || 'Could not save changes.'); }
+    finally { setSaving(false); }
+  };
+
+  const confirmSignOut = () => {
+    Alert.alert('Sign Out', 'Are you sure?', [
       { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Sign out',
-        style: 'destructive',
-        onPress: async () => {
-          await signOut();
-          router.replace('/');
-        },
-      },
+      { text: 'Sign Out', style: 'destructive', onPress: async () => { await signOut(); router.replace('/'); } },
     ]);
   };
 
-  if (!token && !loading) {
-    return (
-      <View style={[styles.container, { paddingTop: insets.top }]}>
-        <UnauthState
-          onSignIn={() => router.push('/auth/client-login')}
-          onSignUp={() => router.push('/auth/client-register')}
-        />
-      </View>
-    );
-  }
+  if (loading) return <View style={[s.center, { paddingTop: insets.top }]}><ActivityIndicator color={D.pink} size="large" /></View>;
 
-  const first = client?.first_name || '';
-  const last  = client?.last_name  || '';
-  const name  = client ? `${first} ${last}`.trim() || client.email : '';
-  const email = client?.email || '';
-  const phone = client?.phone || '';
+  if (!token) return (
+    <View style={[s.container, { paddingTop: insets.top }]}>
+      <View style={s.header}><Text style={s.heading}>Profile</Text></View>
+      <View style={s.center}>
+        <Text style={{ fontSize: 40, marginBottom: 16 }}>👤</Text>
+        <Text style={[s.heading, { color: D.textSec, fontSize: 16 }]}>Sign in to view your profile</Text>
+        <TouchableOpacity style={s.signInBtn} onPress={() => router.push('/auth/client-login')}>
+          <Text style={s.signInTxt}>Sign In</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+
+  const name = [firstName, lastName].filter(Boolean).join(' ') || user?.email?.split('@')[0] || 'Client';
+  const email = user?.email || '';
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <View style={styles.header}><Text style={styles.heading}>Profile</Text></View>
+    <View style={[s.container, { paddingTop: insets.top }]}>
+      <View style={s.header}><Text style={s.heading}>Profile</Text></View>
+      <ScrollView contentContainerStyle={s.scroll}>
 
-      {loading ? (
-        <ActivityIndicator color={Colors.rose} style={{ marginTop: 40 }} />
-      ) : (
-        <ScrollView contentContainerStyle={styles.scroll}>
-          <View style={styles.profileCard}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>{initials(first, last)}</Text>
-            </View>
-            <Text style={styles.profileName}>{name}</Text>
-            {!!email && <Text style={styles.profileEmail}>{email}</Text>}
-            {!!phone && <Text style={styles.profileEmail}>{phone}</Text>}
+        {/* Avatar + name */}
+        <View style={s.profileCard}>
+          <View style={s.avatar}><Text style={s.avatarTxt}>{(firstName[0] || email[0] || '?').toUpperCase()}</Text></View>
+          <View style={{ flex: 1 }}>
+            <Text style={s.nameText}>{name}</Text>
+            <Text style={s.emailText}>{email}</Text>
           </View>
-
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Account</Text>
-            <TouchableOpacity style={styles.row}>
-              <Text style={styles.rowLabel}>Edit Profile</Text>
-              <Text style={styles.rowArrow}>›</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.row}>
-              <Text style={styles.rowLabel}>Notifications</Text>
-              <Text style={styles.rowArrow}>›</Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Support</Text>
-            <TouchableOpacity style={styles.row}>
-              <Text style={styles.rowLabel}>Help Center</Text>
-              <Text style={styles.rowArrow}>›</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.row}>
-              <Text style={styles.rowLabel}>Privacy Policy</Text>
-              <Text style={styles.rowArrow}>›</Text>
-            </TouchableOpacity>
-          </View>
-
-          <TouchableOpacity style={styles.signOutBtn} onPress={handleSignOut}>
-            <Text style={styles.signOutText}>Sign Out</Text>
+          <TouchableOpacity onPress={() => setEditing(e => !e)}>
+            <Text style={{ color: D.pink, fontWeight: '700', fontSize: 14 }}>{editing ? 'Cancel' : 'Edit'}</Text>
           </TouchableOpacity>
-        </ScrollView>
-      )}
+        </View>
+
+        {editing && (
+          <View style={s.editCard}>
+            <Text style={s.editLabel}>FIRST NAME</Text>
+            <TextInput style={s.input} value={firstName} onChangeText={setFirstName} placeholder="First Name" placeholderTextColor={D.textMuted} />
+            <Text style={s.editLabel}>LAST NAME</Text>
+            <TextInput style={s.input} value={lastName} onChangeText={setLastName} placeholder="Last Name" placeholderTextColor={D.textMuted} />
+            <Text style={s.editLabel}>PHONE</Text>
+            <TextInput style={s.input} value={phone} onChangeText={setPhone} placeholder="Phone number" placeholderTextColor={D.textMuted} keyboardType="phone-pad" />
+            <TouchableOpacity style={[s.saveBtn, saving && { opacity: 0.6 }]} onPress={save} disabled={saving}>
+              {saving ? <ActivityIndicator color={D.white} size="small" /> : <Text style={s.saveBtnTxt}>Save Changes</Text>}
+            </TouchableOpacity>
+          </View>
+        )}
+
+        <Text style={s.section}>My Activity</Text>
+        <View style={s.group}>
+          <Row icon="📅" label="My Bookings"   sub="View and manage appointments"       onPress={() => router.push('/(consumer-tabs)/bookings')} />
+        </View>
+
+        <Text style={s.section}>More</Text>
+        <View style={s.group}>
+          <Row icon="📄" label="Terms & Privacy" sub="Our legal policies"               onPress={() => router.push('/consumer/policies')} />
+          <Row icon="❓" label="Help Center"     sub="FAQs and support"                 onPress={() => router.push('/owner/help')} />
+        </View>
+
+        <View style={[s.group, { marginTop: 8 }]}>
+          <Row icon="🚪" label="Sign Out" onPress={confirmSignOut} danger />
+        </View>
+
+        <Text style={s.version}>PinkBook  ·  pinkbook.app</Text>
+        <View style={{ height: 40 }} />
+      </ScrollView>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container:    { flex: 1, backgroundColor: Colors.cream },
-  header:       { paddingHorizontal: 22, paddingTop: 18, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: Colors.border },
-  heading:      { fontSize: 26, fontWeight: '800', color: Colors.charcoal },
-  scroll:       { padding: 20 },
-  profileCard:  { backgroundColor: Colors.white, borderRadius: 20, padding: 24, alignItems: 'center', marginBottom: 20, shadowColor: Colors.charcoal, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 8, elevation: 2 },
-  avatar:       { width: 72, height: 72, borderRadius: 36, backgroundColor: Colors.pinkLight, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
-  avatarText:   { fontSize: 24, fontWeight: '700', color: Colors.rose },
-  profileName:  { fontSize: 18, fontWeight: '700', color: Colors.charcoal },
-  profileEmail: { fontSize: 13, color: Colors.soft, marginTop: 4 },
-  section:      { backgroundColor: Colors.white, borderRadius: 16, marginBottom: 16, overflow: 'hidden' },
-  sectionTitle: { fontSize: 11, fontWeight: '700', color: Colors.soft, textTransform: 'uppercase', letterSpacing: 0.8, paddingHorizontal: 16, paddingTop: 14, paddingBottom: 6 },
-  row:          { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14, borderTopWidth: 1, borderTopColor: Colors.border },
-  rowLabel:     { fontSize: 14, color: Colors.charcoal, fontWeight: '500' },
-  rowArrow:     { fontSize: 18, color: Colors.soft },
-  signOutBtn:   { backgroundColor: Colors.white, borderRadius: 14, padding: 16, alignItems: 'center', borderWidth: 1, borderColor: Colors.error + '40' },
-  signOutText:  { color: Colors.error, fontSize: 14, fontWeight: '700' },
-  unauthCenter: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 },
-  unauthHeading:{ fontSize: 22, fontWeight: '800', color: Colors.charcoal, marginBottom: 10 },
-  unauthSub:    { fontSize: 14, color: Colors.soft, textAlign: 'center', lineHeight: 20, marginBottom: 24 },
-  signInBtn:    { width: '100%', backgroundColor: Colors.rose, paddingVertical: 14, borderRadius: 100, alignItems: 'center', marginBottom: 10 },
-  signInText:   { color: Colors.white, fontWeight: '700', fontSize: 15 },
-  signUpBtn:    { width: '100%', backgroundColor: Colors.white, paddingVertical: 14, borderRadius: 100, alignItems: 'center', borderWidth: 1.5, borderColor: Colors.rose },
-  signUpText:   { color: Colors.rose, fontWeight: '700', fontSize: 15 },
+const s = StyleSheet.create({
+  container:  { flex: 1, backgroundColor: D.bgBase },
+  center:     { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  header:     { paddingHorizontal: 20, paddingTop: 18, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: D.border },
+  heading:    { fontSize: 24, fontWeight: '900', color: D.textPrimary, fontFamily: 'Georgia' },
+  scroll:     { padding: 16, gap: 2 },
+  profileCard:{ backgroundColor: D.bgCard, borderRadius: 16, padding: 16, flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderColor: D.border, marginBottom: 10 },
+  avatar:     { width: 52, height: 52, borderRadius: 26, backgroundColor: 'rgba(212,65,122,0.15)', alignItems: 'center', justifyContent: 'center' },
+  avatarTxt:  { fontSize: 22, fontWeight: '800', color: D.pink },
+  nameText:   { fontSize: 16, fontWeight: '800', color: D.textPrimary },
+  emailText:  { fontSize: 12, color: D.textSec, marginTop: 2 },
+  editCard:   { backgroundColor: D.bgCard, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: D.border, marginBottom: 10 },
+  editLabel:  { fontSize: 10, fontWeight: '800', color: D.textMuted, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 6, marginTop: 10 },
+  input:      { backgroundColor: D.bgElevated, borderRadius: 12, padding: 13, fontSize: 14, color: D.textPrimary, borderWidth: 1, borderColor: D.border, marginBottom: 4 },
+  saveBtn:    { backgroundColor: D.pink, borderRadius: 999, paddingVertical: 13, alignItems: 'center', marginTop: 12 },
+  saveBtnTxt: { color: D.white, fontWeight: '800', fontSize: 15 },
+  section:    { fontSize: 11, fontWeight: '800', letterSpacing: 1, textTransform: 'uppercase', color: D.pink, paddingHorizontal: 4, marginTop: 20, marginBottom: 8 },
+  group:      { backgroundColor: D.bgCard, borderRadius: 16, borderWidth: 1, borderColor: D.border, overflow: 'hidden' },
+  row:        { flexDirection: 'row', alignItems: 'center', padding: 14, borderBottomWidth: 1, borderBottomColor: D.border },
+  rowIcon:    { width: 34, height: 34, borderRadius: 10, backgroundColor: 'rgba(212,65,122,0.1)', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+  rowLabel:   { fontSize: 14, fontWeight: '700', color: D.textPrimary },
+  rowSub:     { fontSize: 12, color: D.textSec, marginTop: 2 },
+  chevron:    { fontSize: 22, color: D.textMuted, fontWeight: '300' },
+  version:    { textAlign: 'center', fontSize: 11, color: D.textMuted, marginTop: 24 },
+  signInBtn:  { marginTop: 20, backgroundColor: D.pink, paddingHorizontal: 28, paddingVertical: 12, borderRadius: 999 },
+  signInTxt:  { color: D.white, fontWeight: '700', fontSize: 14 },
 });

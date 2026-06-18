@@ -95,9 +95,6 @@ export const ClientApi = {
 
   bookings: (token: string) =>
     request<{ bookings: any[] }>('/api/client/auth/bookings', {}, token),
-
-  updateProfile: (token: string, body: { first_name?: string; last_name?: string; phone?: string }) =>
-    request<{ client: any }>('/api/client/auth/update', { method: 'PATCH', body: JSON.stringify(body) }, token),
 };
 
 // ── Discovery (public, no auth) ────────────────────────────────────────────
@@ -115,40 +112,4 @@ export const DiscoverApi = {
 
   business: (slug: string) =>
     request<{ success: boolean; data: any }>(`/api/v1/public/discover/${slug}`),
-};
-
-// ── Public bookings ────────────────────────────────────────────────────────
-export const BookingApi = {
-  settings: (ownerId: string) =>
-    request<any>(`/api/public/bookings/settings/${ownerId}`),
-
-  submit: (body: any) =>
-    request<{ booking: any; confirmationToken: string }>('/api/public/bookings', {
-      method: 'POST',
-      body: JSON.stringify(body),
-    }),
-
-  getByToken: (token: string) =>
-    request<{ booking: any }>(`/api/public/bookings/manage/${token}`),
-
-  cancelByToken: (token: string, reason?: string) =>
-    request<any>(`/api/public/bookings/manage/${token}/cancel`, {
-      method: 'PATCH',
-      body: JSON.stringify({ reason }),
-    }),
-
-  reviews: (slug: string) =>
-    request<{ stats: any; reviews: any[] }>(`/api/public/reviews/${slug}`),
-};
-
-// ── Owner settings save ────────────────────────────────────────────────────
-export const SettingsApi = {
-  get: (token: string) =>
-    request<{ settings: any }>('/api/v1/settings/get', {}, token),
-
-  save: (token: string, settings: any) =>
-    request<{ settings: any }>('/api/v1/settings/save', {
-      method: 'POST',
-      body: JSON.stringify({ settings }),
-    }, token),
 };

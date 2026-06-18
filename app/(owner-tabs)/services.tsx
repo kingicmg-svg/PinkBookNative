@@ -40,7 +40,8 @@ export default function ServicesScreen() {
     setError(null);
     try {
       const res = await OwnerApi.services(token);
-      setServices(Array.isArray(res.services) ? res.services : []);
+      const catalog = res?.settings?.servicesCatalog || res?.settings?.services || [];
+      setServices(Array.isArray(catalog) ? catalog : []);
     } catch (e: any) {
       setError(e.message || 'Could not load services');
     } finally {

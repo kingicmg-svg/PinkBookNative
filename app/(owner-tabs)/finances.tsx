@@ -32,7 +32,7 @@ export default function FinancesScreen() {
     setError(null);
     try {
       const res = await OwnerApi.analytics(token);
-      setData(res.data || res);
+      setData(res.overview || res.data || res);
     } catch (e: any) {
       setError(e.message || 'Could not load finances');
     } finally {
