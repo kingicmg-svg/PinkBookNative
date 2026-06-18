@@ -36,7 +36,11 @@
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "test:vm": "node scripts/vm-grid-test.js",
+    "build:ios": "eas build --platform ios --profile production",
+    "submit:testflight": "eas submit --platform ios --profile production",
+    "submit:appstore": "eas submit --platform ios --profile production --type app-store"
   },
   "private": true
 }

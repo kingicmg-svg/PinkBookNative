@@ -1,14 +1,22 @@
 {
   "expo": {
-    "name": "pinkbook-native",
-    "slug": "pinkbook-native",
+    "name": "PinkBook",
+    "slug": "pinkbook",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "pinkbooknative",
-    "userInterfaceStyle": "automatic",
+    "scheme": "pinkbook",
+    "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.pinkbook.app",
+      "buildNumber": "1",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Access to camera for photo capture and booking uploads",
+        "NSPhotoLibraryUsageDescription": "Access to photo library for booking media",
+        "NSLocalNetworkUsageDescription": "Access local network for development",
+        "LSApplicationQueriesSchemes": ["itms-apps"]
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -27,6 +35,20 @@
     "plugins": [
       "expo-router",
       [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera"
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/notification-icon.png",
+          "color": "#ffffff",
+          "defaultChannel": "default"
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           "image": "./assets/images/splash-icon.png",
@@ -37,6 +59,19 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "{{ EXPO_PUBLIC_EAS_PROJECT_ID }}"
+      }
+    },
+    "owner": "pinkbook-team",
+    "runtimeVersion": "1.0.0",
+    "updates": {
+      "url": "https://u.expo.dev/{{ EXPO_PUBLIC_EAS_PROJECT_ID }}",
+      "enabled": true,
+      "checkOnLaunch": "always",
+      "fallbackToCacheTimeout": 0
     }
   }
 }
