@@ -36,19 +36,26 @@ export default function SettingsScreen() {
   const { token, signOut } = useAuth();
   const [user, setUser] = useState<any>(null);
   const [settings, setSettings] = useState<any>(null);
+  const [brandSlug, setBrandSlug] = useState('');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!token) return;
-    Promise.all([OwnerApi.me(token), SettingsApi.get(token)]).then(([meRes, stRes]) => {
+    Promise.all([
+      OwnerApi.me(token),
+      SettingsApi.get(token),
+      OwnerApi.brandProfile(token).catch(() => ({ profile: null })),
+    ]).then(([meRes, stRes, brandRes]) => {
       setUser(meRes.user || {});
       setSettings(stRes?.settings || {});
+      const prof = brandRes?.profile || {};
+      setBrandSlug(prof.bookingSlug || prof.booking_slug || '');
     }).catch(() => {}).finally(() => setLoading(false));
   }, [token]);
 
   const tier = user?.subscription_tier || user?.tier || settings?.subscription_tier || 'starter';
   const tierMeta = TIER_META[tier] || TIER_META.starter;
-  const slug = settings?.bookingSlug || settings?.booking_slug || '';
+  const slug = brandSlug || settings?.bookingSlug || settings?.booking_slug || '';
   const bookingLink = slug ? `pinkbook.app/${slug}` : null;
 
   const shareLink = async () => {
@@ -89,17 +96,24 @@ export default function SettingsScreen() {
         </View>
 
         {/* Booking link */}
-        {!!bookingLink && (
-          <View style={s.linkCard}>
-            <View style={{ flex: 1 }}>
-              <Text style={s.linkLabel}>Your Booking Link</Text>
-              <Text style={s.linkUrl}>{bookingLink}</Text>
-            </View>
-            <TouchableOpacity style={s.shareBtn} onPress={shareLink}>
-              <Text style={s.shareBtnTxt}>Share</Text>
-            </TouchableOpacity>
+        <View style={s.linkCard}>
+          <View style={{ flex: 1 }}>
+            <Text style={s.linkLabel}>📅 My Booking Page</Text>
+            <Text style={s.linkUrl} numberOfLines={1}>{bookingLink || 'Set up Brand Studio to get your link'}</Text>
           </View>
-        )}
+          <View style={{ gap: 6 }}>
+            {!!slug && (
+              <TouchableOpacity style={s.shareBtn} onPress={() => router.push(`/booking/${slug}` as any)}>
+                <Text style={s.shareBtnTxt}>Preview</Text>
+              </TouchableOpacity>
+            )}
+            {!!bookingLink && (
+              <TouchableOpacity style={[s.shareBtn, { backgroundColor: Colors.charcoal }]} onPress={shareLink}>
+                <Text style={[s.shareBtnTxt, { color: Colors.white }]}>Share</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
 
         {/* Account */}
         <Text style={s.section}>Account</Text>

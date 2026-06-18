@@ -109,6 +109,10 @@ export const OwnerApi = {
 
   deletePromo: (token: string, id: string) =>
     request<{ success: boolean }>(`/api/v1/promos/${id}`, { method: 'DELETE' }, token),
+
+  // ── Brand profile (slug, colors) ──
+  brandProfile: (token: string) =>
+    request<{ profile: any }>('/api/v1/brand-studio/profile', {}, token),
 };
 
 // ── Client auth ────────────────────────────────────────────────────────────
