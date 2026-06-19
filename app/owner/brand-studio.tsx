@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Switch,
-  KeyboardAvoidingView, Platform, ActivityIndicator, Alert, Image, FlatList,
+  KeyboardAvoidingView, Platform, ActivityIndicator, Alert, Image,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -116,7 +116,7 @@ export default function BrandStudioScreen() {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') { Alert.alert('Permission needed', 'Allow photo library access to upload images.'); return; }
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: 'images' as const,
       allowsEditing: true, quality: 0.75, base64: true,
     });
     if (result.canceled || !result.assets[0]?.base64) return;
