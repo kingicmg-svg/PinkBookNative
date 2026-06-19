@@ -19,6 +19,12 @@
         {
           "cameraPermission": "Camera access needed"
         }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "PinkBook needs access to your photo library to upload portfolio and before/after images."
+        }
       ]
     ],
     "android": {

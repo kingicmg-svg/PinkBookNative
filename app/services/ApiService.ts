@@ -113,6 +113,19 @@ export const OwnerApi = {
   // ── Brand profile (slug, colors) ──
   brandProfile: (token: string) =>
     request<{ profile: any }>('/api/v1/brand-studio/profile', {}, token),
+
+  // ── Gallery ──
+  brandGallery: (token: string) =>
+    request<{ gallery: any[] }>('/api/v1/brand-studio/gallery', {}, token),
+
+  brandGalleryUpload: (token: string, body: { imageData: string; caption?: string; isBefore?: boolean; pairId?: string | null }) =>
+    request<{ image: any }>('/api/v1/brand-studio/gallery/upload', { method: 'POST', body: JSON.stringify(body) }, token),
+
+  brandGalleryDelete: (token: string, id: string) =>
+    request<any>(`/api/v1/brand-studio/gallery/${id}`, { method: 'DELETE' }, token),
+
+  brandGalleryPatch: (token: string, id: string, body: { caption?: string; isBefore?: boolean; pairId?: string | null }) =>
+    request<any>(`/api/v1/brand-studio/gallery/${id}`, { method: 'PATCH', body: JSON.stringify(body) }, token),
 };
 
 // ── Client auth ────────────────────────────────────────────────────────────
