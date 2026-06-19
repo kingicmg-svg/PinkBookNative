@@ -1,9 +1,10 @@
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import AnimatedSplash from '../components/AnimatedSplash';
 
 export { ErrorBoundary } from 'expo-router';
 
@@ -17,6 +18,7 @@ export default function RootLayout() {
   const [loaded, error] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
   });
+  const [splashDone, setSplashDone] = useState(false);
 
   useEffect(() => { if (error) throw error; }, [error]);
   useEffect(() => { if (loaded) SplashScreen.hideAsync(); }, [loaded]);
@@ -46,6 +48,7 @@ export default function RootLayout() {
         <Stack.Screen name="consumer/policies"     options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="booking/[slug]"        options={{ animation: 'slide_from_bottom', presentation: 'modal' }} />
       </Stack>
+      {!splashDone && <AnimatedSplash onDone={() => setSplashDone(true)} />}
     </SafeAreaProvider>
   );
 }
