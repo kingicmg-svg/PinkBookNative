@@ -263,6 +263,12 @@ export const SettingsApi = {
     request<{ settings: any }>('/api/v1/settings/save', { method: 'POST', body: JSON.stringify(settings) }, token),
 };
 
+// ── Support form ───────────────────────────────────────────────────────────
+export const SupportApi = {
+  submit: (payload: { issueType: string; email?: string; subject: string; message: string; platform?: string }) =>
+    request<{ success: boolean }>('/api/support', { method: 'POST', body: JSON.stringify(payload) }),
+};
+
 // ── Notification preferences ───────────────────────────────────────────────
 export const NotifPrefApi = {
   // Notification *preferences* live in settings (notifPrefs key)

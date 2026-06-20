@@ -3,8 +3,9 @@ import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Linking, TextInpu
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import Colors from '../../constants/Colors';
+import { SupportApi } from '../services/ApiService';
 
-const SUPPORT_EMAIL = 'support@pinkbook.app';
+const SUPPORT_EMAIL = 'pinkbook.tech@gmail.com';
 const ISSUE_TYPES = ['Booking issue', 'Payments & billing', 'Account access', 'Bug report', 'Feature request', 'Other'];
 
 const TOPICS = [
@@ -114,7 +115,7 @@ export default function HelpScreen() {
         ))}
         <View style={s.contactBox}>
           <Text style={s.contactTitle}>Still need help?</Text>
-          <Text style={s.contactSub}>Reach our team at support@pinkbook.app</Text>
+          <Text style={s.contactSub}>Reach our team at pinkbook.tech@gmail.com</Text>
           <TouchableOpacity style={s.contactBtn} onPress={() => setSupportOpen(true)}>
             <Text style={s.contactBtnTxt}>Email Support</Text>
           </TouchableOpacity>
@@ -147,19 +148,33 @@ function SupportFormModal({ visible, onClose }: { visible: boolean; onClose: () 
       return;
     }
     setSubmitting(true);
-    // Build a prefilled email and hand off to the device mail client when available.
-    // If no mail client is configured (e.g. simulator), we still confirm the request
-    // so the form never dead-ends with an "Unable to open URL" error.
-    const body = `Issue type: ${issueType}\nFrom: ${email || '(not provided)'}\n\n${message}`;
-    const mailUrl = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent('[' + issueType + '] ' + subject)}&body=${encodeURIComponent(body)}`;
+    // Primary path: send the request through the backend, which emails it to the
+    // PinkBook support inbox (pinkbook.tech@gmail.com) with the user as reply-to.
     try {
-      const canMail = await Linking.canOpenURL(mailUrl);
-      if (canMail) await Linking.openURL(mailUrl);
+      await SupportApi.submit({
+        issueType,
+        email: email.trim() || undefined,
+        subject: subject.trim(),
+        message: message.trim(),
+        platform: `ios-app/${Platform.OS}`,
+      });
+      setSubmitting(false);
+      setSent(true);
+      return;
     } catch {
-      /* no-op: fall through to in-app confirmation */
+      // Fallback: hand off to the device mail client when available, guarded so
+      // it never throws "Unable to open URL" on devices without a mail client.
+      const body = `Issue type: ${issueType}\nFrom: ${email || '(not provided)'}\n\n${message}`;
+      const mailUrl = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent('[' + issueType + '] ' + subject)}&body=${encodeURIComponent(body)}`;
+      try {
+        const canMail = await Linking.canOpenURL(mailUrl);
+        if (canMail) await Linking.openURL(mailUrl);
+      } catch {
+        /* no-op: fall through to in-app confirmation */
+      }
+      setSubmitting(false);
+      setSent(true);
     }
-    setSubmitting(false);
-    setSent(true);
   };
 
   return (
@@ -174,9 +189,9 @@ function SupportFormModal({ visible, onClose }: { visible: boolean; onClose: () 
         {sent ? (
           <View style={m.successWrap}>
             <Text style={m.successIcon}>✓</Text>
-            <Text style={m.successTitle}>Message ready</Text>
+            <Text style={m.successTitle}>Message sent</Text>
             <Text style={m.successSub}>
-              We received your request. If your mail app opened, send the email to finish — otherwise reach us anytime at {SUPPORT_EMAIL}.
+              Thanks — our team received your request and will reply by email. You can also reach us anytime at {SUPPORT_EMAIL}.
             </Text>
             <TouchableOpacity style={m.submitBtn} onPress={close}>
               <Text style={m.submitTxt}>Done</Text>
