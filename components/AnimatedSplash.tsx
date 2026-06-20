@@ -106,9 +106,9 @@ export default function AnimatedSplash({ onDone }: Props) {
         <View style={s.divider} />
       </Animated.View>
 
-      {/* Tagline */}
+      {/* Tagline — matches PWA hero eyebrow exactly */}
       <Animated.Text style={[s.tagline, { opacity: tagOpacity }]}>
-        Book beauty. Effortlessly.
+        Booking, Reimagined for Beauty Pros
       </Animated.Text>
 
       {/* Bottom brand footer */}
@@ -175,11 +175,13 @@ const s = StyleSheet.create({
     borderRadius: 1,
   },
   tagline: {
-    fontSize: 15,
-    color: MID,
-    letterSpacing: 0.4,
-    fontWeight: '400',
-    marginTop: 4,
+    fontSize: 11,
+    color: ROSE,
+    letterSpacing: 2.2,
+    fontWeight: '600',
+    marginTop: 18,
+    textTransform: 'uppercase',
+    opacity: 0.75,
   },
   footer: {
     position: 'absolute',
