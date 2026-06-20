@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Share } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Share, Linking } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../hooks/useAuth';
@@ -103,7 +103,8 @@ export default function SettingsScreen() {
           </View>
           <View style={{ gap: 6 }}>
             {!!slug && (
-              <TouchableOpacity style={s.shareBtn} onPress={() => router.push(`/booking/${slug}` as any)}>
+              <TouchableOpacity style={s.shareBtn} onPress={() => Linking.openURL(`https://pinkbook.app/${slug}`)}
+              >
                 <Text style={s.shareBtnTxt}>Preview</Text>
               </TouchableOpacity>
             )}
