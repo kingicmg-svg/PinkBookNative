@@ -254,7 +254,7 @@ export const BookingApi = {
 // ── Owner settings save ────────────────────────────────────────────────────
 export const SettingsApi = {
   get: (token: string) =>
-    request<{ settings: any }>('/api/v1/settings/get', {}, token),
+    request<{ settings: any; subscriptionTier?: string }>('/api/v1/settings/get', {}, token),
 
   save: (token: string, settings: any) =>
     request<{ settings: any }>('/api/v1/settings/save', { method: 'POST', body: JSON.stringify(settings) }, token),

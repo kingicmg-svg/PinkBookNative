@@ -135,7 +135,18 @@ export default function SettingsScreen() {
         <Text style={s.section}>Business</Text>
         <View style={s.group}>
           <Row icon="🕐" label="Working Hours"    sub="Set your availability by day"       onPress={() => router.push('/owner/availability')} />
-          <Row icon="🔔" label="Notifications"    sub="Email and SMS preferences"          onPress={() => router.push('/owner/notifications')} />
+          <Row icon="🔔" label="Notifications"    sub="Email and SMS preferences"
+            badge={tier === 'starter' ? 'Pro' : undefined}
+            onPress={() => {
+              if (tier === 'starter') { Alert.alert('Pro Feature', 'Email and SMS notifications are available on the Pro plan. Upgrade to configure notification channels and reminder timing.'); return; }
+              router.push('/owner/notifications');
+            }} />
+          <Row icon="📋" label="Booking Policies" sub="Cancellation, late, no-show rules"
+            badge={tier === 'starter' ? 'Pro' : undefined}
+            onPress={() => {
+              if (tier === 'starter') { Alert.alert('Pro Feature', 'Custom booking policies are available on the Pro plan. Upgrade to set cancellation windows, late-arrival rules, and deposit requirements.'); return; }
+              router.push('/owner/policies');
+            }} />
         </View>
 
         {/* Plans */}

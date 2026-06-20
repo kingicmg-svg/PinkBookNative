@@ -12,6 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../hooks/useAuth';
 import { SettingsApi } from '../services/ApiService';
+import { useTier } from '../hooks/useTier';
 import Colors from '../../constants/Colors';
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -85,9 +86,29 @@ export default function PoliciesScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { token } = useAuth();
+  const { hasFeature, loading: tierLoading } = useTier();
   const [policy, setPolicy] = useState<BookingPolicy>(DEFAULT_POLICY);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
+
+  // Tier gate — Policies require Pro plan
+  if (!tierLoading && !hasFeature('customPoliciesDeposits')) {
+    return (
+      <View style={{ flex: 1, backgroundColor: Colors.cream, alignItems: 'center', justifyContent: 'center', padding: 32 }}>
+        <Text style={{ fontSize: 36, marginBottom: 16 }}>📋</Text>
+        <Text style={{ fontFamily: 'Georgia', fontSize: 22, color: Colors.charcoal, textAlign: 'center', marginBottom: 10 }}>Pro Feature</Text>
+        <Text style={{ fontSize: 14, color: Colors.mid, textAlign: 'center', lineHeight: 22, marginBottom: 24 }}>
+          Booking policies (cancellation windows, late-arrival rules, no-show fees) are available on the Pro plan and above.
+        </Text>
+        <TouchableOpacity style={{ backgroundColor: Colors.rose, borderRadius: 999, paddingHorizontal: 28, paddingVertical: 14 }} onPress={() => router.push('/owner/upgrade')}>
+          <Text style={{ color: Colors.white, fontWeight: '800', fontSize: 15 }}>View Plans</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={{ marginTop: 14 }} onPress={() => router.back()}>
+          <Text style={{ color: Colors.soft, fontSize: 13 }}>Go Back</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   useEffect(() => {
     if (!token) { setLoading(false); return; }
