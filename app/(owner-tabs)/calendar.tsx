@@ -24,6 +24,21 @@ function fmtCurrency(n: number) { return '$' + Number(n).toFixed(2).replace(/\B(
 function isoDate(d: Date) { return d.toISOString().split('T')[0]; }
 function addDays(d: Date, n: number) { const r = new Date(d); r.setDate(r.getDate()+n); return r; }
 
+/** Convert "YYYY-MM-DD" + "10:00 AM" → ISO datetime string */
+function buildIso(dateStr: string, timeStr: string): string {
+  const [hy, hm, hd] = dateStr.split('-').map(Number);
+  const clean = timeStr.trim().toUpperCase();
+  const isPM  = clean.endsWith('PM');
+  const isAM  = clean.endsWith('AM');
+  const [hPart, mPart] = clean.replace(/\s*(AM|PM)$/i, '').split(':').map(Number);
+  let h = hPart ?? 10;
+  const m = mPart ?? 0;
+  if (isPM && h !== 12) h += 12;
+  if (isAM && h === 12) h = 0;
+  const d = new Date(hy, hm - 1, hd, h, m, 0, 0);
+  return d.toISOString();
+}
+
 // ── Stat Card ──────────────────────────────────────────────────────────────
 function StatCard({ icon, label, value, color, onPress }: { icon:string; label:string; value:string; color:string; onPress?:()=>void }) {
   return (
@@ -507,7 +522,28 @@ export default function CalendarScreen() {
   const handleAddBooking = async (body: any) => {
     if (!token) return;
     try {
-      const r = await OwnerApi.createBooking(token, body);
+      const startsAt  = buildIso(body.date, body.time);
+      const duration  = Number(body.duration) || 60;
+      const endsAt    = new Date(new Date(startsAt).getTime() + duration * 60000).toISOString();
+      const notes     = JSON.stringify({
+        clientEmail:   body.clientEmail  || '',
+        clientPhone:   body.clientPhone  || '',
+        totalDue:      body.price        ?? null,
+        deposit:       body.deposit      ?? null,
+        bookingSource: 'manual',
+        sendEmail:     !!body.sendEmail,
+        notes:         body.notes        || '',
+      });
+      const r = await OwnerApi.createBooking(token, {
+        clientId:    body.clientId,
+        serviceName: body.serviceName,
+        startsAt,
+        endsAt,
+        bookingNotes: notes,
+        status:      body.status || 'confirmed',
+        bookingSource: 'manual',
+        sendEmail:   !!body.sendEmail,
+      });
       if (r.booking) setBookings(bs => [r.booking, ...bs]);
       setAddModal(false);
       Alert.alert('Booked ✓', `${body.clientName}'s appointment was added.`);
