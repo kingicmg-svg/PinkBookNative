@@ -219,6 +219,36 @@ export const BookingApi = {
 
   reviews: (slug: string) =>
     request<{ stats: any; reviews: any[] }>(`/api/public/reviews/${slug}`),
+
+  // ── Stripe payments ──
+  getStripePaymentConfig: () =>
+    request<{ enabled: boolean; publishableKey: string; paypal: any }>('/api/payments/config'),
+
+  createStripeCheckoutSession: (body: {
+    amountCents: number;
+    serviceName: string;
+    customerEmail: string;
+    customerName: string;
+    bookingRef: string;
+    ownerId: string;
+    successUrl: string;
+    cancelUrl: string;
+  }) =>
+    request<{ id: string; url: string }>('/api/payments/checkout-session', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
+  getStripeCheckoutSession: (sessionId: string) =>
+    request<{
+      id: string;
+      status: string;
+      paymentStatus: string;
+      amountTotal: number;
+      currency: string;
+      paymentIntentId: string;
+      paymentCard: { brand: string; last4: string; wallet: string };
+    }>(`/api/payments/checkout-session/${sessionId}`),
 };
 
 // ── Owner settings save ────────────────────────────────────────────────────

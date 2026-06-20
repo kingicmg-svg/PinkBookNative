@@ -6,6 +6,8 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../hooks/useAuth';
 import { DiscoverApi, BookingApi } from '../services/ApiService';
 
@@ -318,6 +320,7 @@ export default function BookingScreen() {
   const [confirmed,     setConfirmed]     = useState(false);
   const [confId,        setConfId]        = useState('');
   const [confToken,     setConfToken]     = useState('');
+  const [stripeEnabled, setStripeEnabled] = useState(false);
 
   // ── Swipe-down to dismiss ─────────────────────────────────────────────
   const slideY    = useRef(new Animated.Value(0)).current;
@@ -407,6 +410,11 @@ export default function BookingScreen() {
   // ── Load data ─────────────────────────────────────────────────────────
   useEffect(() => {
     if (!slug) return;
+    // Load payment config (Stripe enabled?) alongside business data
+    BookingApi.getStripePaymentConfig()
+      .then(cfg => setStripeEnabled(!!cfg?.enabled))
+      .catch(() => setStripeEnabled(false));
+
     DiscoverApi.business(slug as string)
       .then(r => {
         const biz = r?.data || r || {};
@@ -458,9 +466,106 @@ export default function BookingScreen() {
     }
   };
 
+  const NATIVE_RETURN_URL = 'https://pinkbook.app/pinkbook-stripe-native-return.html';
+
+  const startStripeCheckout = async () => {
+    const amountCents = Math.round(deposit * 100);
+    if (amountCents < 50) {
+      Alert.alert('No Deposit Set', 'Card payment requires a deposit amount to be configured for this service. Please contact the studio or choose e-transfer.');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const ownerId = business?.ownerId || business?.owner_id || '';
+      const bookingRef = `${slug}-${Date.now()}`;
+      const session = await BookingApi.createStripeCheckoutSession({
+        amountCents,
+        serviceName: service?.name || 'Booking Deposit',
+        customerEmail: email,
+        customerName: (firstName + ' ' + lastName).trim(),
+        bookingRef,
+        ownerId,
+        successUrl: NATIVE_RETURN_URL + '?session_id={CHECKOUT_SESSION_ID}',
+        cancelUrl:  NATIVE_RETURN_URL + '?cancel=1',
+      });
+      if (!session?.url) throw new Error('Could not create Stripe checkout. Please try again.');
+
+      // Open Stripe in in-app browser; wait for deep-link redirect back to pinkbook://
+      const result = await WebBrowser.openAuthSessionAsync(session.url, 'pinkbook://');
+
+      if (result.type !== 'success' || !result.url) {
+        Alert.alert('Payment Cancelled', 'Your booking was not completed.');
+        return;
+      }
+
+      // Parse session_id from the redirected deep-link URL
+      const returnUrl = new URL(result.url);
+      const sessionId = returnUrl.searchParams.get('session_id') || '';
+      if (!sessionId) {
+        Alert.alert('Payment Cancelled', 'Your booking was not completed.');
+        return;
+      }
+
+      // Verify payment with backend
+      const verified = await BookingApi.getStripeCheckoutSession(sessionId);
+      if (verified.paymentStatus !== 'paid') {
+        throw new Error('Payment is not confirmed yet. Please try again.');
+      }
+
+      // Now submit the booking with full Stripe payment details
+      const r = await BookingApi.submit({
+        email, phone,
+        clientName:    (firstName + ' ' + lastName).trim(),
+        firstName, lastName,
+        service:       service?.name || '',
+        serviceName:   service?.name || '',
+        servicePrice:  Number(service?.price) || 0,
+        duration:      service?.durFrom || '',
+        ownerId,
+        deposit:       deposit,
+        totalPaid:     deposit,
+        totalDue:      deposit,
+        paymentMethod: 'card',
+        paymentStatus: deposit >= (Number(service?.price) || deposit) ? 'paid_in_full' : 'deposit_paid',
+        status:        'confirmed',
+        stripeSessionId:         verified.id,
+        stripePaymentIntentId:   verified.paymentIntentId || '',
+        cardLast4:     verified.paymentCard?.last4 || '',
+        cardBrand:     verified.paymentCard?.brand || '',
+        cardWallet:    verified.paymentCard?.wallet || '',
+        addons:        selAddons,
+        date,
+        dateLabel:     date ? fmtLong(date) : '',
+        time,
+        promoCode:     promoCode || undefined,
+        notes:         note || undefined,
+        intakeAnswers: Object.keys(intakeAnswers).length ? intakeAnswers : undefined,
+        texture:       texture || undefined,
+        ...(isHair ? { hairTexture: texture || undefined, hairType: hairType || undefined, hairColors: hairColours.length ? hairColours : undefined }
+          : isNail ? { nailFocus: texture || undefined, nailLength: nailLength || undefined, nailShape: nailShape || undefined }
+          : isLash ? { lashPreference: texture || undefined }
+          : isWax  ? { waxArea: texture || undefined }
+          : {}),
+      });
+
+      setConfId(r?.booking?.id || r?.id || '');
+      setConfToken(r?.booking?.manageToken || r?.booking?.manage_token || '');
+      setConfirmed(true);
+    } catch (e: any) {
+      Alert.alert('Booking Failed', e?.message || 'Could not complete booking.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const submit = async () => {
     if (!firstName || !email || !email.includes('@')) {
       Alert.alert('Missing Info', 'Please enter your name and a valid email.'); return;
+    }
+    // Card payment routes through Stripe hosted checkout
+    if (payMethod === 'card') {
+      await startStripeCheckout();
+      return;
     }
     setSubmitting(true);
     try {
@@ -860,7 +965,9 @@ export default function BookingScreen() {
           )}
 
           <Text style={s.sectionTitle}>Payment Method</Text>
-          {PAYMENT_OPTS.map(p => (
+          {PAYMENT_OPTS.filter(p =>
+            p.id !== 'card' || (stripeEnabled && deposit > 0)
+          ).map(p => (
             <TouchableOpacity key={p.id}
               style={[s.card, { backgroundColor: D.bgCard, borderColor: D.bgElevated }, payMethod === p.id && { borderColor: D.pink, backgroundColor: D.cardOn }]}
               onPress={() => setPayMethod(p.id)}>
