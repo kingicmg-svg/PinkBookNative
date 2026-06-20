@@ -67,18 +67,42 @@ export default function BrandStudioScreen() {
 
   useEffect(() => {
     if (!token) return;
-    Promise.all([SettingsApi.get(token)]).then(([r]) => {
-      const st = r?.settings || {};
-      setStudioName(st.studioName||''); setTagline(st.tagline||''); setBio(st.bio||'');
-      setCity(st.city||''); setCategory(st.category||''); setOnDiscovery(st.onDiscovery!==false);
-      setPrimary(st.primaryColor||C.rose); setAccent(st.accentColor||C.pinkLight);
-      setDisplayFont(st.displayFont||FONTS[0]);
-      setSlug(st.bookingSlug||''); setInstagram(st.instagram||''); setTiktok(st.tiktok||'');
-      setSenderName(st.senderName||''); setConfirmNote(st.confirmationNote||'');
-      setCancelNote(st.cancellationNote||''); setAnnouncement(st.announcementText||'');
-      setShowAnnouncement(!!st.showAnnouncement);
-      setTier(st.subscription_tier||st.subscriptionTier||'starter');
-    }).catch(()=>{}).finally(()=>setLoading(false));
+    Promise.all([
+      SettingsApi.get(token),
+      OwnerApi.brandProfile(token).catch(() => ({ success: false, data: null })),
+    ]).then(([stRes, bpRes]) => {
+      const st = stRes?.settings || {};
+      const bp = bpRes?.data || {};  // brand_studio_profiles row (snake_case)
+
+      // Identity — prefer brand profile (authoritative for booking page), fall back to settings
+      setStudioName(bp.business_name || st.studioName || '');
+      setTagline(bp.tagline || st.tagline || '');
+      setBio(bp.bio || st.bio || '');
+      setCity(bp.city || st.city || '');
+      setCategory(bp.service_category || st.category || '');
+      setOnDiscovery(bp.listed_on_discover !== undefined ? bp.listed_on_discover : st.onDiscovery !== false);
+
+      // Visual
+      setPrimary(bp.primary_color || st.primaryColor || C.rose);
+      setAccent(bp.accent_color || st.accentColor || C.pinkLight);
+      setDisplayFont(bp.display_font || st.displayFont || FONTS[0]);
+
+      // Booking link
+      setSlug(bp.booking_slug || st.bookingSlug || '');
+      setInstagram(bp.instagram_url || st.instagram || '');
+      setTiktok(bp.tiktok_url || st.tiktok || '');
+
+      // Voice
+      setSenderName(bp.email_sender_name || st.senderName || '');
+      setConfirmNote(bp.confirmation_note || st.confirmationNote || '');
+      setCancelNote(bp.cancellation_note || st.cancellationNote || '');
+      setAnnouncement(bp.announcement_text || st.announcementText || '');
+      setShowAnnouncement(
+        bp.announcement_active !== undefined ? !!bp.announcement_active : !!st.showAnnouncement,
+      );
+
+      setTier(st.subscriptionTier || st.subscription_tier || 'starter');
+    }).catch(() => {}).finally(() => setLoading(false));
   }, [token]);
 
   const loadGallery = useCallback(async () => {
@@ -95,14 +119,36 @@ export default function BrandStudioScreen() {
 
   const save = async () => {
     if (!token) return; setSaving(true);
+    const cleanSlug = slug.toLowerCase().replace(/[^a-z0-9-]/g, '');
     try {
+      // 1. Save to user_settings.settings_json (flat — no wrapper)
       await SettingsApi.save(token, {
         studioName, tagline, bio, city, category, onDiscovery,
         primaryColor, accentColor, displayFont,
-        bookingSlug: slug.toLowerCase().replace(/[^a-z0-9-]/g,''),
+        bookingSlug: cleanSlug,
         instagram, tiktok, senderName,
         confirmationNote: confirmNote, cancellationNote: cancelNote,
         announcementText, showAnnouncement,
+      });
+      // 2. Save to brand_studio_profiles (powers the public booking page & slug lookup)
+      await OwnerApi.brandProfileSave(token, {
+        businessName: studioName,
+        tagline,
+        bio,
+        city,
+        serviceCategory: category,
+        listedOnDiscover: onDiscovery,
+        primaryColor,
+        accentColor,
+        displayFont,
+        bookingSlug: cleanSlug,
+        instagramUrl: instagram,
+        tiktokUrl: tiktok,
+        emailSenderName: senderName,
+        confirmationNote: confirmNote,
+        cancellationNote: cancelNote,
+        announcementText,
+        announcementActive: showAnnouncement,
       });
       Alert.alert('Saved!', 'Your brand settings have been updated.');
     } catch(e:any) { Alert.alert('Error', e.message||'Save failed'); }

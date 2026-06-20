@@ -44,16 +44,16 @@ export default function SettingsScreen() {
     Promise.all([
       OwnerApi.me(token),
       SettingsApi.get(token),
-      OwnerApi.brandProfile(token).catch(() => ({ profile: null })),
+      OwnerApi.brandProfile(token).catch(() => ({ success: false, data: null })),
     ]).then(([meRes, stRes, brandRes]) => {
       setUser(meRes.user || {});
       setSettings(stRes?.settings || {});
-      const prof = brandRes?.profile || {};
-      setBrandSlug(prof.bookingSlug || prof.booking_slug || '');
+      const prof = brandRes?.data || {};
+      setBrandSlug(prof.booking_slug || '');
     }).catch(() => {}).finally(() => setLoading(false));
   }, [token]);
 
-  const tier = user?.subscription_tier || user?.tier || settings?.subscription_tier || 'starter';
+  const tier = user?.subscription_tier || user?.tier || settings?.subscriptionTier || settings?.subscription_tier || 'starter';
   const tierMeta = TIER_META[tier] || TIER_META.starter;
   const slug = brandSlug || settings?.bookingSlug || settings?.booking_slug || '';
   const bookingLink = slug ? `pinkbook.app/${slug}` : null;

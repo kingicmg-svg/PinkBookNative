@@ -110,9 +110,12 @@ export const OwnerApi = {
   deletePromo: (token: string, id: string) =>
     request<{ success: boolean }>(`/api/v1/promos/${id}`, { method: 'DELETE' }, token),
 
-  // ── Brand profile (slug, colors) ──
+  // ── Brand profile (slug, colors, booking page) ──
   brandProfile: (token: string) =>
-    request<{ profile: any }>('/api/v1/brand-studio/profile', {}, token),
+    request<{ success: boolean; data: any }>('/api/v1/brand-studio/profile', {}, token),
+
+  brandProfileSave: (token: string, body: any) =>
+    request<{ success: boolean; data: any }>('/api/v1/brand-studio/profile', { method: 'POST', body: JSON.stringify(body) }, token),
 
   // ── Gallery ──
   brandGallery: (token: string) =>
@@ -205,7 +208,7 @@ export const SettingsApi = {
     request<{ settings: any }>('/api/v1/settings/get', {}, token),
 
   save: (token: string, settings: any) =>
-    request<{ settings: any }>('/api/v1/settings/save', { method: 'POST', body: JSON.stringify({ settings }) }, token),
+    request<{ settings: any }>('/api/v1/settings/save', { method: 'POST', body: JSON.stringify(settings) }, token),
 };
 
 // ── Notification preferences ───────────────────────────────────────────────
