@@ -175,7 +175,7 @@ export const DiscoverApi = {
     request<{ success: boolean; data: any[] }>('/api/v1/public/discover/editorial'),
 
   business: (slug: string) =>
-    request<{ success: boolean; data: any }>(`/api/v1/public/discover/${slug}`),
+    request<{ success: boolean; data: any }>(`/api/v1/brand-studio/public/profile/slug/${encodeURIComponent(slug)}`),
 };
 
 // ── Public bookings ────────────────────────────────────────────────────────
