@@ -104,8 +104,7 @@ export default function SettingsScreen() {
           </View>
           <View style={{ gap: 6 }}>
             {!!slug && (
-              <TouchableOpacity style={s.shareBtn} onPress={() => bookingUrl && Linking.openURL(bookingUrl)}>
-              >
+              <TouchableOpacity style={s.shareBtn} onPress={() => router.push(`/booking/${slug}`)}>
                 <Text style={s.shareBtnTxt}>Preview</Text>
               </TouchableOpacity>
             )}

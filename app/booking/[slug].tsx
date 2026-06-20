@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet, TextInput,
   ActivityIndicator, Alert, KeyboardAvoidingView, Platform,
-  Animated, PanResponder, Dimensions,
+  Animated, PanResponder, Dimensions, Linking,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -239,6 +239,7 @@ export default function BookingScreen() {
 
   // ── Data ──────────────────────────────────────────────────────────────
   const [loading,    setLoading]    = useState(true);
+  const [loadError,  setLoadError]  = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [business,   setBusiness]   = useState<any>(null);
   const [settings,   setSettings]   = useState<any>(null);
@@ -373,7 +374,7 @@ export default function BookingScreen() {
             .catch(() => {});
         }
       })
-      .catch(() => {})
+      .catch(() => setLoadError(true))
       .finally(() => setLoading(false));
   }, [slug]);
 
@@ -438,6 +439,25 @@ export default function BookingScreen() {
       Alert.alert('Booking Failed', e?.message || 'Could not complete booking.');
     } finally { setSubmitting(false); }
   };
+
+  // ── Load error (fallback to web) ──────────────────────────────────────
+  const webUrl = `https://pinkbook.app/pinkbook-booking.html?name=${encodeURIComponent(String(slug || ''))}` ;
+  if (!loading && loadError) return (
+    <View style={[s.fill, { backgroundColor: BASE.bgBase, justifyContent: 'center', alignItems: 'center', padding: 32, paddingTop: insets.top }]}>
+      <Text style={{ fontSize: 36, marginBottom: 16 }}>⚠️</Text>
+      <Text style={{ color: BASE.textPrimary, fontSize: 17, fontWeight: '800', marginBottom: 8, textAlign: 'center' }}>Couldn't load booking page</Text>
+      <Text style={{ color: BASE.textSec, fontSize: 14, textAlign: 'center', marginBottom: 32, lineHeight: 20 }}>There was a problem fetching this page. You can open it in your browser instead.</Text>
+      <TouchableOpacity
+        onPress={() => Linking.openURL(webUrl)}
+        style={{ backgroundColor: '#D4417A', borderRadius: 100, paddingHorizontal: 28, paddingVertical: 14, marginBottom: 16 }}
+      >
+        <Text style={{ color: '#fff', fontWeight: '800', fontSize: 15 }}>Open in Browser</Text>
+      </TouchableOpacity>
+      <TouchableOpacity onPress={() => router.back()}>
+        <Text style={{ color: BASE.textSec, fontSize: 14 }}>← Go back</Text>
+      </TouchableOpacity>
+    </View>
+  );
 
   // ── Loading ───────────────────────────────────────────────────────────
   if (loading) return (
