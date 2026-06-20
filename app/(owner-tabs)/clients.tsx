@@ -136,14 +136,18 @@ function ClientDetail({ visible, client, stats, bookings, onClose, onEdit }: { v
               <Text style={cd.historyTitle}>BOOKING HISTORY</Text>
               {bookings.slice(0,10).map((b,i) => {
                 const svc  = b.serviceName||b.service_name||'';
-                const date = b.appointmentTime||b.appointment_time||b.time||'';
+                const rawDate = b.startsAt||b.starts_at||b.date||b.appointmentDate||b.appointment_date||'';
+                const parsedDate = rawDate ? new Date(rawDate) : null;
+                const dateStr = parsedDate && !isNaN(parsedDate.getTime())
+                  ? parsedDate.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})
+                  : '—';
                 const st   = b.status||'confirmed';
                 const stCol: Record<string,string> = { confirmed:C.success, pending:'#F59E0B', completed:'#6366F1', cancelled:'#9CA3AF' };
                 return (
                   <View key={b.id||i} style={cd.historyRow}>
                     <View style={{flex:1}}>
                       <Text style={cd.historySvc}>{svc||'Appointment'}</Text>
-                      <Text style={cd.historyDate}>{date?new Date(date).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'—'}</Text>
+                      <Text style={cd.historyDate}>{dateStr}</Text>
                     </View>
                     <View style={[cd.historyBadge,{backgroundColor:(stCol[st]||C.soft)+'20'}]}>
                       <Text style={[cd.historyBadgeTxt,{color:stCol[st]||C.soft}]}>{st}</Text>
@@ -272,7 +276,7 @@ export default function ClientsScreen() {
       </View>
 
       {/* Filter chips */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.filterRow}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.filterScroll} contentContainerStyle={s.filterRow}>
         {FILTERS.map(f => (
           <TouchableOpacity key={f} style={[s.filterChip, filter===f && s.filterChipOn]} onPress={() => setFilter(f)}>
             <Text style={[s.filterChipTxt, filter===f && s.filterChipTxtOn]}>
@@ -330,8 +334,9 @@ const s = StyleSheet.create({
   searchIcon:    { fontSize:14 },
   searchInput:   { flex:1, paddingVertical:11, fontSize:14, color:C.charcoal },
   searchClear:   { fontSize:14, color:C.soft, padding:4 },
-  filterRow:     { paddingHorizontal:14, paddingVertical:10, gap:8 },
-  filterChip:    { paddingHorizontal:14, paddingVertical:6, borderRadius:999, backgroundColor:C.white, borderWidth:1, borderColor:C.border },
+  filterScroll:  { flexGrow:0 },
+  filterRow:     { flexDirection:'row', alignItems:'center', paddingHorizontal:14, paddingVertical:8, gap:8 },
+  filterChip:    { height:32, paddingHorizontal:14, borderRadius:999, backgroundColor:C.white, borderWidth:1, borderColor:C.border, alignItems:'center', justifyContent:'center' },
   filterChipOn:  { backgroundColor:C.rose, borderColor:C.rose },
   filterChipTxt: { fontSize:12, fontWeight:'600', color:C.soft },
   filterChipTxtOn:{ color:C.white, fontWeight:'800' },
