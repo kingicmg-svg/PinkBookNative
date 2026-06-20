@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { Animated, StyleSheet, Text, View, Easing, Dimensions } from 'react-native';
+import * as SplashScreen from 'expo-splash-screen';
 
 const { width, height } = Dimensions.get('window');
 const ROSE  = '#C85D7A';
@@ -17,6 +18,9 @@ export default function AnimatedSplash({ onDone }: Props) {
   const shimmer      = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
+    // Hide native splash now that AnimatedSplash is painted
+    SplashScreen.hideAsync().catch(() => {});
+
     // Phase 1 — logo bounces in (0–500ms)
     Animated.parallel([
       Animated.spring(logoScale, {

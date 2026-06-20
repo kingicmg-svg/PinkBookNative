@@ -116,7 +116,7 @@ export default function BrandStudioScreen() {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') { Alert.alert('Permission needed', 'Allow photo library access to upload images.'); return; }
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: 'images' as const,
+      mediaTypes: ['images'],
       allowsEditing: true, quality: 0.75, base64: true,
     });
     if (result.canceled || !result.assets[0]?.base64) return;

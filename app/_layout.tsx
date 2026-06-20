@@ -6,13 +6,14 @@ import 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import AnimatedSplash from '../components/AnimatedSplash';
 
+// Keep native splash visible until AnimatedSplash takes over
+SplashScreen.preventAutoHideAsync();
+
 export { ErrorBoundary } from 'expo-router';
 
 export const unstable_settings = {
   initialRouteName: 'index',
 };
-
-SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   const [loaded, error] = useFonts({
@@ -21,7 +22,6 @@ export default function RootLayout() {
   const [splashDone, setSplashDone] = useState(false);
 
   useEffect(() => { if (error) throw error; }, [error]);
-  useEffect(() => { if (loaded) SplashScreen.hideAsync(); }, [loaded]);
 
   if (!loaded) return null;
 
