@@ -239,6 +239,16 @@ function AddBookingModal({ visible, clients, settings, onClose, onSave }:
   const [time, setTime] = useState('10:00 AM');
   const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
+  // autofill fields
+  const [clientEmail, setClientEmail] = useState('');
+  const [clientPhone, setClientPhone] = useState('');
+  // custom price override
+  const [customPrice, setCustomPrice] = useState('');
+  const [customDeposit, setCustomDeposit] = useState('');
+  // payment status
+  const [paymentStatus, setPaymentStatus] = useState<'pending'|'confirmed'|'completed'>('pending');
+  // send confirmation email toggle
+  const [sendEmail, setSendEmail] = useState(true);
 
   const cat = settings?.servicesCatalog || {};
   const services = Array.isArray(cat.services) ? cat.services : [];
@@ -251,44 +261,130 @@ function AddBookingModal({ visible, clients, settings, onClose, onSave }:
     const n = (sv.name||'').toLowerCase(); return !serviceSearch || n.includes(serviceSearch.toLowerCase());
   }).slice(0, 10);
 
+  const PAYMENT_STATUS_OPTS: Array<{ id: 'pending'|'confirmed'|'completed'; label: string }> = [
+    { id: 'pending', label: 'Pending' },
+    { id: 'confirmed', label: 'Confirmed' },
+    { id: 'completed', label: 'Completed' },
+  ];
+
+  const reset = () => {
+    setSelectedClient(null); setSelectedService(null);
+    setClientSearch(''); setServiceSearch('');
+    setClientEmail(''); setClientPhone('');
+    setCustomPrice(''); setCustomDeposit('');
+    setDate(isoDate(new Date())); setTime('10:00 AM');
+    setNote(''); setPaymentStatus('pending'); setSendEmail(true);
+  };
+
   const save = () => {
     if (!selectedClient || !selectedService || !date || !time) {
       Alert.alert('Missing Fields', 'Please select a client, service, date and time.'); return;
     }
-    onSave({ clientId: selectedClient.id, clientName: selectedClient.name, serviceId: selectedService.id, serviceName: selectedService.name, price: selectedService.price, duration: selectedService.duration, date, time, notes: note, status: 'confirmed' });
-    setSelectedClient(null); setSelectedService(null); setClientSearch(''); setServiceSearch(''); setDate(isoDate(new Date())); setTime('10:00 AM'); setNote('');
+    const resolvedPrice   = customPrice   !== '' ? Number(customPrice)   : selectedService.price;
+    const resolvedDeposit = customDeposit !== '' ? Number(customDeposit) : (selectedService.deposit ?? 0);
+    onSave({
+      clientId:      selectedClient.id,
+      clientName:    selectedClient.name,
+      clientEmail:   clientEmail || selectedClient.contactEmail || '',
+      clientPhone:   clientPhone || selectedClient.phone || '',
+      serviceId:     selectedService.id,
+      serviceName:   selectedService.name,
+      price:         resolvedPrice,
+      deposit:       resolvedDeposit,
+      duration:      selectedService.duration,
+      date,
+      time,
+      notes:         note,
+      status:        paymentStatus,
+      sendEmail,
+      bookingSource: 'manual',
+    });
+    reset();
   };
 
   return (
-    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => { reset(); onClose(); }}>
       <View style={m.container}>
         <View style={m.header}>
           <Text style={m.title}>Add Appointment</Text>
-          <TouchableOpacity onPress={onClose}><Text style={m.cancel}>Cancel</Text></TouchableOpacity>
+          <TouchableOpacity onPress={() => { reset(); onClose(); }}><Text style={m.cancel}>Cancel</Text></TouchableOpacity>
         </View>
         <ScrollView contentContainerStyle={m.scroll} keyboardShouldPersistTaps="handled">
+          {/* Client */}
           <Text style={m.label}>CLIENT</Text>
-          <TextInput style={m.input} value={clientSearch} onChangeText={setClientSearch} placeholder="Search client by name or email…" placeholderTextColor={C.soft} />
-          {!!clientSearch && filteredClients.map(c => (
-            <TouchableOpacity key={c.id} style={[m.option, selectedClient?.id===c.id && m.optionOn]} onPress={() => { setSelectedClient(c); setClientSearch(c.name||c.contactEmail||''); }}>
+          <TextInput style={m.input} value={clientSearch} onChangeText={t => { setClientSearch(t); if (!t) setSelectedClient(null); }} placeholder="Search client by name or email…" placeholderTextColor={C.soft} />
+          {!!clientSearch && !selectedClient && filteredClients.map(c => (
+            <TouchableOpacity key={c.id} style={m.option} onPress={() => {
+              setSelectedClient(c);
+              setClientSearch(c.name || c.contactEmail || '');
+              setClientEmail(c.contactEmail || '');
+              setClientPhone(c.phone || '');
+            }}>
               <Text style={m.optionTxt}>{c.name || 'Unknown'}</Text>
               {!!c.contactEmail && <Text style={m.optionSub}>{c.contactEmail}</Text>}
             </TouchableOpacity>
           ))}
+          {!!selectedClient && (
+            <View style={m.autofillRow}>
+              <TextInput style={[m.input, m.halfInput]} value={clientEmail} onChangeText={setClientEmail} placeholder="Email" placeholderTextColor={C.soft} keyboardType="email-address" />
+              <TextInput style={[m.input, m.halfInput]} value={clientPhone} onChangeText={setClientPhone} placeholder="Phone" placeholderTextColor={C.soft} keyboardType="phone-pad" />
+            </View>
+          )}
+
+          {/* Service */}
           <Text style={m.label}>SERVICE</Text>
-          <TextInput style={m.input} value={serviceSearch} onChangeText={setServiceSearch} placeholder="Search service…" placeholderTextColor={C.soft} />
-          {!!serviceSearch && filteredServices.map((sv: any, i: number) => (
-            <TouchableOpacity key={i} style={[m.option, selectedService?.name===sv.name && m.optionOn]} onPress={() => { setSelectedService(sv); setServiceSearch(sv.name); }}>
+          <TextInput style={m.input} value={serviceSearch} onChangeText={t => { setServiceSearch(t); if (!t) setSelectedService(null); }} placeholder="Search service…" placeholderTextColor={C.soft} />
+          {!!serviceSearch && !selectedService && filteredServices.map((sv: any, i: number) => (
+            <TouchableOpacity key={i} style={m.option} onPress={() => {
+              setSelectedService(sv);
+              setServiceSearch(sv.name);
+              setCustomPrice('');
+              setCustomDeposit('');
+            }}>
               <Text style={m.optionTxt}>{sv.name}</Text>
               <Text style={m.optionSub}>{sv.duration ? `${sv.duration}m` : ''}{sv.price ? ` · $${sv.price}` : ''}</Text>
             </TouchableOpacity>
           ))}
+
+          {/* Price override */}
+          {!!selectedService && (
+            <>
+              <Text style={m.label}>PRICE OVERRIDE (optional)</Text>
+              <View style={m.autofillRow}>
+                <TextInput style={[m.input, m.halfInput]} value={customPrice} onChangeText={setCustomPrice} placeholder={`Default: $${selectedService.price ?? 0}`} placeholderTextColor={C.soft} keyboardType="decimal-pad" />
+                <TextInput style={[m.input, m.halfInput]} value={customDeposit} onChangeText={setCustomDeposit} placeholder={`Deposit: $${selectedService.deposit ?? 0}`} placeholderTextColor={C.soft} keyboardType="decimal-pad" />
+              </View>
+            </>
+          )}
+
+          {/* Date / Time */}
           <Text style={m.label}>DATE</Text>
           <TextInput style={m.input} value={date} onChangeText={setDate} placeholder="YYYY-MM-DD" placeholderTextColor={C.soft} />
           <Text style={m.label}>TIME</Text>
           <TextInput style={m.input} value={time} onChangeText={setTime} placeholder="10:00 AM" placeholderTextColor={C.soft} />
+
+          {/* Payment status */}
+          <Text style={m.label}>PAYMENT STATUS</Text>
+          <View style={m.chipRow}>
+            {PAYMENT_STATUS_OPTS.map(o => (
+              <TouchableOpacity key={o.id} style={[m.chip, paymentStatus === o.id && m.chipOn]} onPress={() => setPaymentStatus(o.id)}>
+                <Text style={[m.chipTxt, paymentStatus === o.id && m.chipTxtOn]}>{o.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* Note */}
           <Text style={m.label}>NOTE (OPTIONAL)</Text>
           <TextInput style={[m.input, { height: 72, textAlignVertical: 'top' }]} value={note} onChangeText={setNote} multiline placeholder="Internal note…" placeholderTextColor={C.soft} />
+
+          {/* Send email */}
+          <TouchableOpacity style={m.toggleRow} onPress={() => setSendEmail(v => !v)} activeOpacity={0.8}>
+            <View style={[m.toggleBox, sendEmail && { backgroundColor: C.rose, borderColor: C.rose }]}>
+              {sendEmail && <Text style={{ color: '#fff', fontSize: 11, fontWeight: '800' }}>✓</Text>}
+            </View>
+            <Text style={m.toggleLabel}>Send confirmation email to client</Text>
+          </TouchableOpacity>
+
           <TouchableOpacity style={m.saveBtn} onPress={save}>
             <Text style={m.saveBtnTxt}>Save Appointment</Text>
           </TouchableOpacity>
@@ -610,17 +706,27 @@ const s = StyleSheet.create({
 
 // ── Add Modal Styles ───────────────────────────────────────────────────────
 const m = StyleSheet.create({
-  container:  { flex:1, backgroundColor:C.cream },
-  header:     { flexDirection:'row', justifyContent:'space-between', alignItems:'center', padding:20, borderBottomWidth:1, borderBottomColor:C.border },
-  title:      { fontSize:18, fontWeight:'900', color:C.charcoal, fontFamily:'Georgia' },
-  cancel:     { color:C.rose, fontWeight:'700', fontSize:15 },
-  scroll:     { padding:20, gap:4 },
-  label:      { fontSize:10, fontWeight:'800', letterSpacing:1, color:C.soft, textTransform:'uppercase', marginTop:14, marginBottom:6 },
-  input:      { backgroundColor:C.white, borderRadius:12, padding:13, fontSize:14, color:C.charcoal, borderWidth:1, borderColor:C.border },
-  option:     { backgroundColor:C.white, borderRadius:10, padding:12, marginBottom:4, borderWidth:1, borderColor:C.border },
-  optionOn:   { borderColor:C.rose, backgroundColor:C.pinkLight },
-  optionTxt:  { fontSize:13, fontWeight:'700', color:C.charcoal },
-  optionSub:  { fontSize:11, color:C.soft, marginTop:2 },
-  saveBtn:    { backgroundColor:C.rose, borderRadius:999, paddingVertical:15, alignItems:'center', marginTop:20 },
-  saveBtnTxt: { color:C.white, fontWeight:'800', fontSize:16 },
+  container:   { flex:1, backgroundColor:C.cream },
+  header:      { flexDirection:'row', justifyContent:'space-between', alignItems:'center', padding:20, borderBottomWidth:1, borderBottomColor:C.border },
+  title:       { fontSize:18, fontWeight:'900', color:C.charcoal, fontFamily:'Georgia' },
+  cancel:      { color:C.rose, fontWeight:'700', fontSize:15 },
+  scroll:      { padding:20, gap:4 },
+  label:       { fontSize:10, fontWeight:'800', letterSpacing:1, color:C.soft, textTransform:'uppercase', marginTop:14, marginBottom:6 },
+  input:       { backgroundColor:C.white, borderRadius:12, padding:13, fontSize:14, color:C.charcoal, borderWidth:1, borderColor:C.border },
+  option:      { backgroundColor:C.white, borderRadius:10, padding:12, marginBottom:4, borderWidth:1, borderColor:C.border },
+  optionOn:    { borderColor:C.rose, backgroundColor:C.pinkLight },
+  optionTxt:   { fontSize:13, fontWeight:'700', color:C.charcoal },
+  optionSub:   { fontSize:11, color:C.soft, marginTop:2 },
+  autofillRow: { flexDirection:'row', gap:8, marginTop:4 },
+  halfInput:   { flex:1 },
+  chipRow:     { flexDirection:'row', flexWrap:'wrap', gap:8, marginBottom:4 },
+  chip:        { borderRadius:100, paddingHorizontal:14, paddingVertical:7, borderWidth:1.5, borderColor:C.border, backgroundColor:C.white },
+  chipOn:      { borderColor:C.rose, backgroundColor:C.pinkLight },
+  chipTxt:     { fontSize:12, fontWeight:'700', color:C.soft },
+  chipTxtOn:   { color:C.rose },
+  toggleRow:   { flexDirection:'row', alignItems:'center', gap:10, marginTop:16, marginBottom:4 },
+  toggleBox:   { width:20, height:20, borderRadius:5, borderWidth:2, borderColor:C.soft, alignItems:'center', justifyContent:'center' },
+  toggleLabel: { fontSize:13, color:C.charcoal, fontWeight:'600' },
+  saveBtn:     { backgroundColor:C.rose, borderRadius:999, paddingVertical:15, alignItems:'center', marginTop:20 },
+  saveBtnTxt:  { color:C.white, fontWeight:'800', fontSize:16 },
 });

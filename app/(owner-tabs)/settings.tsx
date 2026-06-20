@@ -148,7 +148,7 @@ export default function SettingsScreen() {
         <Text style={s.section}>Support</Text>
         <View style={s.group}>
           <Row icon="❓" label="Help Center"     sub="FAQs and how-tos"                   onPress={() => router.push('/owner/help')} />
-          <Row icon="📄" label="Terms & Privacy" sub="Legal policies"                     onPress={() => router.push('/owner/policies')} />
+          <Row icon="📄" label="Terms & Privacy" sub="Legal policies"                     onPress={() => router.push('/owner/legal')} />
         </View>
 
         {/* Sign Out */}

@@ -321,6 +321,7 @@ export default function BookingScreen() {
   const [confId,        setConfId]        = useState('');
   const [confToken,     setConfToken]     = useState('');
   const [stripeEnabled, setStripeEnabled] = useState(false);
+  const [policyAgreed, setPolicyAgreed]   = useState(false);
 
   // ── Swipe-down to dismiss ─────────────────────────────────────────────
   const slideY    = useRef(new Animated.Value(0)).current;
@@ -370,6 +371,7 @@ export default function BookingScreen() {
   const hairSynthPrice = Number(settings?.hairSyntheticPrice || 0);
   const mixCharge      = Number(settings?.hairExtMixCharge || 15);
   const loyaltyConfig  = settings?.loyaltyConfig || null;
+  const bookingPolicy  = settings?.bookingPolicy || null;
 
   const intakeForms = Array.isArray(settings?.intakeForms) ? settings.intakeForms : [];
   const intakeQuestions: { text: string }[] = [];
@@ -461,7 +463,8 @@ export default function BookingScreen() {
       case 'nail_style': return !!nailLength && !!nailShape;
       case 'service':    return !!service;
       case 'datetime':   return !!date && !!time;
-      case 'info':       return !!firstName && !!email && email.includes('@');
+      case 'info':       return !!firstName && !!email && email.includes('@')
+        && (!bookingPolicy?.ackEnabled || policyAgreed);
       default:           return true;
     }
   };
@@ -1041,9 +1044,55 @@ export default function BookingScreen() {
             </View>
           )}
           <View style={[s.policyBox, { borderColor: D.border }]}>
-            <Text style={{ color: BASE.textMuted, fontSize: 12, lineHeight: 18 }}>
-              By confirming you agree to the provider's cancellation policy. Deposits are non-refundable if cancelled within 48 hours. Late arrivals of 15+ minutes may result in a rescheduled appointment.
-            </Text>
+            {bookingPolicy ? (
+              <>
+                {bookingPolicy.cancelEnabled !== false && (
+                  <Text style={{ color: BASE.textMuted, fontSize: 12, lineHeight: 18, marginBottom: 4 }}>
+                    {'\u2022'} Cancellations within {
+                      { 12: '12 hrs', 24: '24 hrs', 48: '48 hrs', 72: '72 hrs', 168: '1 week' }[bookingPolicy.cancelWindow as 12|24|48|72|168] ?? '24 hrs'
+                    }: {
+                      { retain: 'deposit retained', refund: 'deposit refunded', partial: 'partial refund' }[bookingPolicy.cancelDepositRule as 'retain'|'refund'|'partial'] ?? 'deposit may be retained'
+                    }.
+                  </Text>
+                )}
+                {bookingPolicy.lateEnabled && (
+                  <Text style={{ color: BASE.textMuted, fontSize: 12, lineHeight: 18, marginBottom: 4 }}>
+                    {'\u2022'} Late arrivals over {bookingPolicy.lateThreshold || 10} min may result in {
+                      bookingPolicy.lateAction === 'cancel' ? 'appointment cancellation' :
+                      bookingPolicy.lateAction === 'shorten' ? 'a shortened session' :
+                      bookingPolicy.lateAction === 'fee' ? 'a late fee' : 'a rescheduled appointment'
+                    }.
+                  </Text>
+                )}
+                {bookingPolicy.noshowEnabled && (
+                  <Text style={{ color: BASE.textMuted, fontSize: 12, lineHeight: 18 }}>
+                    {'\u2022'} No-shows may incur a {
+                      bookingPolicy.noshowFeeType === 'percent'
+                        ? `${bookingPolicy.noshowFeeAmount || 100}% fee`
+                        : `$${bookingPolicy.noshowFeeAmount || 0} fee`
+                    }.
+                  </Text>
+                )}
+                {bookingPolicy.ackEnabled && (
+                  <TouchableOpacity
+                    style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginTop: 12 }}
+                    onPress={() => setPolicyAgreed(v => !v)}
+                    activeOpacity={0.8}
+                  >
+                    <View style={[s.ackCheckbox, policyAgreed && { backgroundColor: D.pink, borderColor: D.pink }]}>
+                      {policyAgreed && <Text style={{ color: '#fff', fontSize: 11, fontWeight: '800', lineHeight: 14, textAlign: 'center' }}>✓</Text>}
+                    </View>
+                    <Text style={{ flex: 1, fontSize: 12, color: BASE.textSec, lineHeight: 18 }}>
+                      {bookingPolicy.ackText || 'I have read and agree to the booking policy above.'}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </>
+            ) : (
+              <Text style={{ color: BASE.textMuted, fontSize: 12, lineHeight: 18 }}>
+                By confirming you agree to the provider's cancellation policy. Deposits are non-refundable if cancelled within 48 hours. Late arrivals of 15+ minutes may result in a rescheduled appointment.
+              </Text>
+            )}
           </View>
           <TouchableOpacity
             style={[s.bookBtn, { backgroundColor: D.pink, shadowColor: D.pink }, submitting && { opacity: 0.7 }]}
@@ -1162,6 +1211,7 @@ const s = StyleSheet.create({
   promoBox:     { borderRadius: 14, borderWidth: 1, borderStyle: 'dashed', padding: 14, marginTop: 4, marginBottom: 8 },
   promoBtn:     { paddingHorizontal: 18, paddingVertical: 13, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   policyBox:    { borderRadius: 14, borderWidth: 1, padding: 16, marginBottom: 16 },
+  ackCheckbox:  { width: 18, height: 18, borderRadius: 5, borderWidth: 2, borderColor: '#C0A0B0', marginTop: 1, alignItems: 'center', justifyContent: 'center' },
   summaryCard:  { backgroundColor: '#1A1014', borderRadius: 16, padding: 20, borderWidth: 1, marginBottom: 14 },
   summaryTitle: { fontSize: 18, fontWeight: '900', fontFamily: 'Georgia', marginBottom: 14 },
   totalRow:     { flexDirection: 'row', justifyContent: 'space-between', paddingTop: 12, marginTop: 4, borderTopWidth: 1 },
