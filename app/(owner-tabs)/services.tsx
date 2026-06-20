@@ -266,6 +266,14 @@ export default function ServicesScreen() {
   const [addonModal, setAddonModal] = useState(false);
   const [editAddon, setEditAddon]   = useState<any>(null);
 
+  // Hair extension (Boho) settings
+  const [hairExtEnabled,    setHairExtEnabled]    = useState(false);
+  const [hairHumanLabel,    setHairHumanLabel]    = useState('Human Boho');
+  const [hairHumanPrice,    setHairHumanPrice]    = useState('');
+  const [hairSynthLabel,    setHairSynthLabel]    = useState('Synthetic Boho');
+  const [hairSynthPrice,    setHairSynthPrice]    = useState('');
+  const [hairMixCharge,     setHairMixCharge]     = useState('15');
+
   // Promos tab
   const [promos, setPromos]     = useState<any[]>([]);
   const [promoModal, setPromoModal] = useState(false);
@@ -281,6 +289,13 @@ export default function ServicesScreen() {
       const cat = st.servicesCatalog || {};
       setServices(Array.isArray(cat.services) ? cat.services : []);
       setAddons(Array.isArray(cat.addons) ? cat.addons : []);
+      // hair extension settings
+      setHairExtEnabled(!!st.hairExtEnabled);
+      setHairHumanLabel(st.hairHumanLabel || 'Human Boho');
+      setHairHumanPrice(st.hairHumanPrice != null ? String(st.hairHumanPrice) : '');
+      setHairSynthLabel(st.hairSyntheticLabel || 'Synthetic Boho');
+      setHairSynthPrice(st.hairSyntheticPrice != null ? String(st.hairSyntheticPrice) : '');
+      setHairMixCharge(st.hairExtMixCharge != null ? String(st.hairExtMixCharge) : '15');
     } catch {}
     // Load promos separately
     try {
@@ -336,6 +351,18 @@ export default function ServicesScreen() {
     setAddons(updated);
     setAddonModal(false); setEditAddon(null);
     await saveSettings({ servicesCatalog: buildCatalog(services, updated) });
+  };
+
+  const saveHairExtSettings = async () => {
+    await saveSettings({
+      hairExtEnabled,
+      hairHumanLabel:    hairHumanLabel.trim() || 'Human Boho',
+      hairHumanPrice:    hairHumanPrice !== '' ? parseFloat(hairHumanPrice) : 0,
+      hairSyntheticLabel: hairSynthLabel.trim() || 'Synthetic Boho',
+      hairSyntheticPrice: hairSynthPrice !== '' ? parseFloat(hairSynthPrice) : 0,
+      hairExtMixCharge:  hairMixCharge !== '' ? parseFloat(hairMixCharge) : 15,
+    });
+    Alert.alert('Saved', 'Hair extension settings updated.');
   };
   const deleteAddon = (id: string) => {
     Alert.alert('Delete Add-on','Remove this add-on?',[
@@ -424,6 +451,106 @@ export default function ServicesScreen() {
                   </View>
                 </View>
               ))}
+
+              {/* ── Hair Extensions (Boho) ── */}
+              <View style={he.card}>
+                <View style={he.headerRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={he.cardTitle}>💇 Hair Extensions (Boho)</Text>
+                    <Text style={he.cardSub}>Show hair type + colour picker on booking page</Text>
+                  </View>
+                  <Switch
+                    value={hairExtEnabled}
+                    onValueChange={setHairExtEnabled}
+                    trackColor={{ true: C.rose, false: C.border }}
+                    thumbColor={C.white}
+                  />
+                </View>
+
+                {hairExtEnabled && (
+                  <>
+                    <View style={he.divider} />
+
+                    <Text style={he.sectionLabel}>HUMAN BOHO</Text>
+                    <View style={he.fieldRow}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={he.fieldLabel}>Label</Text>
+                        <TextInput
+                          style={he.input}
+                          value={hairHumanLabel}
+                          onChangeText={setHairHumanLabel}
+                          placeholder="Human Boho"
+                          placeholderTextColor={C.soft}
+                        />
+                      </View>
+                      <View style={{ width: 100 }}>
+                        <Text style={he.fieldLabel}>Price ($)</Text>
+                        <TextInput
+                          style={he.input}
+                          value={hairHumanPrice}
+                          onChangeText={setHairHumanPrice}
+                          placeholder="0.00"
+                          placeholderTextColor={C.soft}
+                          keyboardType="decimal-pad"
+                        />
+                      </View>
+                    </View>
+
+                    <Text style={[he.sectionLabel, { marginTop: 12 }]}>SYNTHETIC BOHO</Text>
+                    <View style={he.fieldRow}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={he.fieldLabel}>Label</Text>
+                        <TextInput
+                          style={he.input}
+                          value={hairSynthLabel}
+                          onChangeText={setHairSynthLabel}
+                          placeholder="Synthetic Boho"
+                          placeholderTextColor={C.soft}
+                        />
+                      </View>
+                      <View style={{ width: 100 }}>
+                        <Text style={he.fieldLabel}>Price ($)</Text>
+                        <TextInput
+                          style={he.input}
+                          value={hairSynthPrice}
+                          onChangeText={setHairSynthPrice}
+                          placeholder="0.00"
+                          placeholderTextColor={C.soft}
+                          keyboardType="decimal-pad"
+                        />
+                      </View>
+                    </View>
+
+                    <Text style={[he.sectionLabel, { marginTop: 12 }]}>COLOUR MIX FEE</Text>
+                    <TextInput
+                      style={[he.input, { width: 100 }]}
+                      value={hairMixCharge}
+                      onChangeText={setHairMixCharge}
+                      placeholder="15"
+                      placeholderTextColor={C.soft}
+                      keyboardType="decimal-pad"
+                    />
+                    <Text style={he.hint}>Added when client selects 2+ colours</Text>
+
+                    <TouchableOpacity
+                      style={[he.saveBtn, saving && { opacity: 0.5 }]}
+                      onPress={saveHairExtSettings}
+                      disabled={saving}
+                    >
+                      <Text style={he.saveBtnTxt}>{saving ? 'Saving…' : 'Save Hair Extension Settings'}</Text>
+                    </TouchableOpacity>
+                  </>
+                )}
+                {!hairExtEnabled && (
+                  <TouchableOpacity
+                    style={[he.saveBtn, { marginTop: 8 }, saving && { opacity: 0.5 }]}
+                    onPress={saveHairExtSettings}
+                    disabled={saving}
+                  >
+                    <Text style={he.saveBtnTxt}>{saving ? 'Saving…' : 'Save'}</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
             </ScrollView>
           )}
 
@@ -521,4 +648,19 @@ const sm = StyleSheet.create({
   toggleRow: { flexDirection:'row', justifyContent:'space-between', alignItems:'center', paddingVertical:14, borderTopWidth:1, borderTopColor:C.border, marginTop:16 },
   toggleLabel:{ fontSize:14, fontWeight:'700', color:C.charcoal },
   toggleSub:  { fontSize:12, color:C.soft, marginTop:2 },
+});
+
+const he = StyleSheet.create({
+  card:        { backgroundColor:C.white, borderRadius:16, padding:18, borderWidth:1, borderColor:C.border, marginTop:8 },
+  headerRow:   { flexDirection:'row', alignItems:'center', gap:12 },
+  cardTitle:   { fontSize:14, fontWeight:'800', color:C.charcoal },
+  cardSub:     { fontSize:12, color:C.soft, marginTop:2 },
+  divider:     { height:1, backgroundColor:C.border, marginVertical:16 },
+  sectionLabel:{ fontSize:10, fontWeight:'800', color:C.soft, letterSpacing:1.2, marginBottom:8 },
+  fieldRow:    { flexDirection:'row', gap:12 },
+  fieldLabel:  { fontSize:11, fontWeight:'700', color:C.soft, marginBottom:6 },
+  input:       { backgroundColor:C.cream, borderRadius:10, padding:12, fontSize:14, color:C.charcoal, borderWidth:1, borderColor:C.border },
+  hint:        { fontSize:11, color:C.soft, marginTop:6 },
+  saveBtn:     { backgroundColor:C.rose, borderRadius:12, padding:14, alignItems:'center', marginTop:16 },
+  saveBtnTxt:  { color:C.white, fontWeight:'800', fontSize:14 },
 });
