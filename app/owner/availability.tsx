@@ -13,7 +13,12 @@ const DEFAULT_HOURS = { open:'09:00', close:'18:00', isOpen: true };
 type DayHours = { open: string; close: string; isOpen: boolean };
 type Schedule = Record<string, DayHours>;
 
-const QUICK_TIMES = ['07:00','08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00','20:00','21:00'];
+const QUICK_TIMES = Array.from({ length: Math.floor((23 * 60 + 55 - 6 * 60) / 5) + 1 }, (_, i) => {
+  const total = 6 * 60 + i * 5;
+  const h = Math.floor(total / 60);
+  const m = total % 60;
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+});
 
 function fmt12(t: string) {
   if (!t) return '';

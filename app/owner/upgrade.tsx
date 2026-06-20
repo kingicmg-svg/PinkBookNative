@@ -1,8 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Linking, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { useAuth } from '../hooks/useAuth';
+import { AuthApi } from '../services/ApiService';
 import Colors from '../../constants/Colors';
+
+const TIER_ORDER = ['starter', 'pro', 'salon', 'studio_elite'];
 
 const PLANS = [
   {
@@ -30,11 +34,31 @@ const PLANS = [
 export default function UpgradeScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { token } = useAuth();
   const [selected, setSelected] = useState<string | null>(null);
+  const [currentTier, setCurrentTier] = useState<string>('starter');
 
-  const handleUpgrade = (planId: string) => {
+  useEffect(() => {
+    if (!token) return;
+    AuthApi.me(token)
+      .then(res => setCurrentTier(res.user?.subscription_tier || res.user?.tier || 'starter'))
+      .catch(() => {});
+  }, [token]);
+
+  const getPlanLabel = (planId: string) => {
+    const planName = PLANS.find(p => p.id === planId)?.name || planId;
+    const currentRank = TIER_ORDER.indexOf(currentTier);
+    const planRank = TIER_ORDER.indexOf(planId);
+    if (planRank > currentRank) return `Upgrade to ${planName}`;
+    if (planRank < currentRank) return `Downgrade to ${planName}`;
+    return 'Current Plan';
+  };
+
+  const handlePlanAction = (planId: string) => {
     setSelected(planId);
-    Alert.alert('Upgrade Plan', `To upgrade to ${PLANS.find(p=>p.id===planId)?.name}, please visit pinkbook.app from a browser to complete billing setup.`, [
+    const label = getPlanLabel(planId);
+    const planName = PLANS.find(p => p.id === planId)?.name;
+    Alert.alert(label, `To ${label.toLowerCase()}, please visit pinkbook.app from a browser to complete your billing changes.`, [
       { text: 'Cancel', style: 'cancel' },
       { text: 'OK' },
     ]);
@@ -72,13 +96,18 @@ export default function UpgradeScreen() {
                 <Text style={[s.featureTxt, plan.dark && { color: 'rgba(255,255,255,0.75)' }]}>{f}</Text>
               </View>
             ))}
-            {plan.id !== 'starter' && (
+            {plan.id !== 'starter' && plan.id !== currentTier && (
               <TouchableOpacity
                 style={[s.cta, { backgroundColor: plan.dark ? Colors.rose : plan.color }, plan.id === 'pro' && s.ctaGlow]}
-                onPress={() => handleUpgrade(plan.id)}
+                onPress={() => handlePlanAction(plan.id)}
               >
-                <Text style={s.ctaTxt}>Upgrade to {plan.name}</Text>
+                <Text style={s.ctaTxt}>{getPlanLabel(plan.id)}</Text>
               </TouchableOpacity>
+            )}
+            {plan.id === currentTier && (
+              <View style={[s.cta, { backgroundColor: 'rgba(0,0,0,0.08)' }]}>
+                <Text style={[s.ctaTxt, { color: plan.dark ? 'rgba(255,255,255,0.5)' : Colors.soft }]}>✓ Current Plan</Text>
+              </View>
             )}
           </View>
         ))}
