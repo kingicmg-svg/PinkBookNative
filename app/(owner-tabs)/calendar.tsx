@@ -224,7 +224,9 @@ export default function CalendarScreen() {
     try { return isoDate(new Date(t)) === selectedDate; } catch { return false; }
   });
 
-  const filteredBookings = bookingsForDate.filter(b => {
+  // When a status filter is active, search ALL bookings (not just selected date)
+  // so the count in the stat badge always matches what's shown in the list.
+  const filteredBookings = (filter === 'All' ? bookingsForDate : bookings).filter(b => {
     if (filter === 'All') return true;
     return (b.status||'').toLowerCase() === filter.toLowerCase().replace('-','').replace('show','show');
   });
@@ -334,7 +336,9 @@ export default function CalendarScreen() {
         {/* Selected date heading */}
         <View style={s.dateHeading}>
           <Text style={s.dateHeadingTxt}>
-            {new Date(selectedDate+'T00:00:00').toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric' })}
+            {filter === 'All'
+              ? new Date(selectedDate+'T00:00:00').toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric' })
+              : `All ${filter} Bookings`}
           </Text>
           <Text style={s.dateHeadingCount}>{filteredBookings.length} appointment{filteredBookings.length !== 1 ? 's' : ''}</Text>
         </View>
