@@ -6,6 +6,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '../hooks/useAuth';
 import { OwnerApi } from '../services/ApiService';
 import Colors from '../../constants/Colors';
@@ -50,9 +51,82 @@ function StatCard({ icon, label, value, color, onPress }: { icon:string; label:s
   );
 }
 
+// ── Before / After Photo Capture ────────────────────────────────────────────
+function BeforeAfterCapture({ booking, token }: { booking: any; token: string | null }) {
+  const [beforeId, setBeforeId] = useState<string | null>(null);
+  const [afterDone, setAfterDone] = useState(false);
+  const [busy, setBusy] = useState<'before' | 'after' | null>(null);
+
+  // Reset when a different booking opens
+  const bookingId = booking?.id;
+  useEffect(() => { setBeforeId(null); setAfterDone(false); setBusy(null); }, [bookingId]);
+
+  const pickAndUpload = async (which: 'before' | 'after') => {
+    if (!token) return;
+    if (which === 'after' && !beforeId) {
+      Alert.alert('Add a "before" photo first', 'Capture the before photo before adding the after photo.');
+      return;
+    }
+    try {
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!perm.granted) { Alert.alert('Permission needed', 'Photo library access is required to add photos.'); return; }
+      const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.7, base64: true });
+      if (res.canceled || !res.assets?.[0]?.base64) return;
+      setBusy(which);
+      const imageData = `data:image/jpeg;base64,${res.assets[0].base64}`;
+      const caption = booking?.serviceName || booking?.service_name || '';
+      if (which === 'before') {
+        const r = await OwnerApi.brandGalleryUpload(token, { imageData, caption, isBefore: true });
+        const id = r?.data?.id;
+        if (id) { setBeforeId(String(id)); Alert.alert('Saved ✓', 'Before photo added to your gallery.'); }
+      } else {
+        await OwnerApi.brandGalleryUpload(token, { imageData, caption, isBefore: false, pairId: beforeId });
+        setAfterDone(true);
+        Alert.alert('Saved ✓', 'After photo added — before/after pair complete.');
+      }
+    } catch (e: any) {
+      const msg = String(e?.message || '');
+      if (/elite|subscription|upgrade/i.test(msg)) {
+        Alert.alert('Studio Elite required', 'Before/after gallery photos are part of the Studio Elite plan.');
+      } else {
+        Alert.alert('Upload failed', msg || 'Please try again.');
+      }
+    } finally { setBusy(null); }
+  };
+
+  return (
+    <View style={dm.card}>
+      <Text style={dm.sectionHeader}>BEFORE & AFTER</Text>
+      <Text style={[dm.val, { textAlign: 'left', marginTop: 2, marginBottom: 10, color: C.soft, fontSize: 12 }]}>
+        Capture before and after photos to showcase this transformation on your booking page.
+      </Text>
+      <View style={{ flexDirection: 'row', gap: 10 }}>
+        <TouchableOpacity
+          style={[dm.actionBtn, { flex: 1, backgroundColor: beforeId ? C.success + '15' : C.pinkLight, borderColor: beforeId ? C.success + '40' : C.border }]}
+          disabled={busy !== null}
+          onPress={() => pickAndUpload('before')}
+        >
+          {busy === 'before'
+            ? <ActivityIndicator color={C.rose} />
+            : <Text style={[dm.actionBtnTxt, { color: beforeId ? C.success : C.rose }]}>{beforeId ? '✓ Before added' : '📷 Add Before'}</Text>}
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[dm.actionBtn, { flex: 1, backgroundColor: afterDone ? C.success + '15' : C.pinkLight, borderColor: afterDone ? C.success + '40' : C.border, opacity: beforeId ? 1 : 0.5 }]}
+          disabled={busy !== null || !beforeId}
+          onPress={() => pickAndUpload('after')}
+        >
+          {busy === 'after'
+            ? <ActivityIndicator color={C.rose} />
+            : <Text style={[dm.actionBtnTxt, { color: afterDone ? C.success : C.rose }]}>{afterDone ? '✓ After added' : '📷 Add After'}</Text>}
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
 // ── Booking Detail Modal ────────────────────────────────────────────────────
-function BookingDetailModal({ booking, visible, onClose, onConfirm, onDeny, onStatusChange }:
-  { booking: any; visible: boolean; onClose: ()=>void; onConfirm: ()=>void; onDeny: ()=>void; onStatusChange: (s:string)=>void }) {
+function BookingDetailModal({ booking, visible, onClose, onConfirm, onDeny, onStatusChange, token }:
+  { booking: any; visible: boolean; onClose: ()=>void; onConfirm: ()=>void; onDeny: ()=>void; onStatusChange: (s:string)=>void; token: string | null }) {
   if (!booking) return null;
   const status    = booking.status || 'pending';
   const statusCol = STATUS_COLOR[status] || C.soft;
@@ -155,6 +229,11 @@ function BookingDetailModal({ booking, visible, onClose, onConfirm, onDeny, onSt
               <Text style={[dm.actionBtnTxt, { color: '#EF4444', textAlign: 'center' }]}>Cancel Booking</Text>
             </TouchableOpacity>
           )}
+
+          {(status === 'confirmed' || status === 'completed') && (
+            <BeforeAfterCapture booking={booking} token={token} />
+          )}
+
           <View style={{ height: 32 }} />
         </ScrollView>
       </View>
@@ -515,7 +594,7 @@ export default function CalendarScreen() {
       await OwnerApi.patchStatus(token, id, status);
       setBookings(bs => bs.map(b => b.id === id ? { ...b, status } : b));
       setDetailBooking((d: any) => d?.id === id ? { ...d, status } : d);
-      if (status === 'cancelled' || status === 'completed') setDetailBooking(null);
+      if (status === 'cancelled') setDetailBooking(null);
     } catch (e: any) { Alert.alert('Error', e.message); }
   };
 
@@ -668,6 +747,7 @@ export default function CalendarScreen() {
       <BookingDetailModal
         booking={detailBooking}
         visible={!!detailBooking}
+        token={token}
         onClose={() => setDetailBooking(null)}
         onConfirm={() => detailBooking && handleConfirm(detailBooking.id)}
         onDeny={() => detailBooking && handleDeny(detailBooking.id)}

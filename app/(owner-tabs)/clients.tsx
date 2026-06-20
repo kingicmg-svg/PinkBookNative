@@ -195,6 +195,7 @@ export default function ClientsScreen() {
   const [loading, setLoading]   = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [clients, setClients]   = useState<any[]>([]);
+  const [birthdays, setBirthdays] = useState<any[]>([]);
   const [search, setSearch]     = useState('');
   const [filter, setFilter]     = useState('all');
   const [addModal, setAddModal] = useState(false);
@@ -215,6 +216,10 @@ export default function ClientsScreen() {
       setClients(Array.isArray(r.clients) ? r.clients : []);
     } catch {}
     finally { setLoading(false); setRefreshing(false); }
+    // Upcoming birthdays (best-effort, non-blocking)
+    OwnerApi.upcomingBirthdays(token)
+      .then(b => setBirthdays(Array.isArray(b.clients) ? b.clients : []))
+      .catch(() => setBirthdays([]));
   }, [token]);
 
   useEffect(() => { load(); }, [load]);
@@ -289,6 +294,29 @@ export default function ClientsScreen() {
       {/* Count */}
       <Text style={s.countTxt}>{filteredClients.length} client{filteredClients.length!==1?'s':''}</Text>
 
+      {/* Upcoming birthdays */}
+      {!search && birthdays.length > 0 && (
+        <View style={s.bdayWrap}>
+          <Text style={s.bdayTitle}>🎂 Upcoming Birthdays</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingRight: 14 }}>
+            {birthdays.map(b => {
+              const when = b.daysAway === 0 ? 'Today' : b.daysAway === 1 ? 'Tomorrow' : `in ${b.daysAway} days`;
+              return (
+                <TouchableOpacity
+                  key={b.id}
+                  style={s.bdayCard}
+                  activeOpacity={0.8}
+                  onPress={() => { const match = clients.find(c => c.id === b.id); if (match) openDetail(match); }}
+                >
+                  <Text style={s.bdayName} numberOfLines={1}>{b.name}</Text>
+                  <Text style={s.bdayWhen}>{when}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+      )}
+
       {loading ? (
         <ActivityIndicator style={{marginTop:60}} color={C.rose} size="large" />
       ) : (
@@ -341,6 +369,11 @@ const s = StyleSheet.create({
   filterChipTxt: { fontSize:12, fontWeight:'600', color:C.soft },
   filterChipTxtOn:{ color:C.white, fontWeight:'800' },
   countTxt:      { fontSize:11, color:C.soft, paddingHorizontal:18, paddingBottom:6 },
+  bdayWrap:      { paddingLeft:14, paddingBottom:10 },
+  bdayTitle:     { fontSize:12, fontWeight:'800', color:C.charcoal, marginBottom:8 },
+  bdayCard:      { backgroundColor:C.white, borderWidth:1, borderColor:C.border, borderRadius:12, paddingHorizontal:14, paddingVertical:10, minWidth:120 },
+  bdayName:      { fontSize:13, fontWeight:'700', color:C.charcoal },
+  bdayWhen:      { fontSize:11, color:C.rose, fontWeight:'700', marginTop:2 },
   row:           { flexDirection:'row', alignItems:'center', paddingHorizontal:16, paddingVertical:12, backgroundColor:C.white, gap:12 },
   separator:     { height:1, backgroundColor:C.border, marginLeft:68 },
   avatar:        { width:44, height:44, borderRadius:22, backgroundColor:C.pinkLight, alignItems:'center', justifyContent:'center' },

@@ -9,7 +9,8 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../hooks/useAuth';
-import { DiscoverApi, BookingApi } from '../services/ApiService';
+import { DiscoverApi, BookingApi, API_URL } from '../services/ApiService';
+import BeforeAfterSlider from '../components/BeforeAfterSlider';
 
 const { height: SCREEN_H } = Dimensions.get('window');
 
@@ -235,6 +236,66 @@ const hdr = StyleSheet.create({
   gold:     { color: '#C9A96E' },
 });
 
+// ── Announcement banner + before/after showcase (booking page, step 0) ──────
+function ProviderShowcase({ business, gallery, D, bannerDismissed, onDismiss }:
+  { business: any; gallery: any[]; D: ReturnType<typeof palette>; bannerDismissed: boolean; onDismiss: () => void }) {
+  const annText   = business?.announcementText || business?.announcement_text || '';
+  const annActive = business?.announcementActive ?? business?.announcement_active;
+  const showBanner = !!annText && !!annActive && !bannerDismissed;
+
+  // Build before/after pairs: a "before" item (is_before) plus the "after" whose pair_id points to it.
+  const beforeItems = Array.isArray(gallery) ? gallery.filter(g => g.is_before) : [];
+  const afterMap: Record<string, any> = {};
+  (Array.isArray(gallery) ? gallery : []).filter(g => g.pair_id).forEach(g => { afterMap[g.pair_id] = g; });
+  const pairs = beforeItems
+    .map(b => ({ before: b, after: afterMap[b.id] }))
+    .filter(p => p.before && p.after);
+  const imgUrl = (id: string) => `${API_URL}/api/v1/brand-studio/public/gallery/image/${id}`;
+
+  if (!showBanner && pairs.length === 0) return null;
+
+  return (
+    <View style={{ marginBottom: 4 }}>
+      {showBanner && (
+        <View style={[sc.banner, { backgroundColor: D.pink + '18', borderColor: D.pink + '40' }]}>
+          <Text style={{ fontSize: 16, marginRight: 8 }}>📣</Text>
+          <Text style={[sc.bannerTxt, { color: BASE.textPrimary }]}>{annText}</Text>
+          <TouchableOpacity onPress={onDismiss} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Text style={[sc.bannerX, { color: BASE.textSec }]}>✕</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+      {pairs.length > 0 && (
+        <View style={{ marginTop: showBanner ? 12 : 0 }}>
+          <Text style={[sc.title, { color: BASE.textPrimary }]}>✨ Transformations</Text>
+          <Text style={[sc.sub, { color: BASE.textSec }]}>Drag the slider to compare before &amp; after.</Text>
+          {pairs.slice(0, 5).map((p, i) => (
+            <View key={p.before.id} style={{ marginTop: i === 0 ? 10 : 14 }}>
+              <BeforeAfterSlider
+                beforeUri={imgUrl(p.before.id)}
+                afterUri={imgUrl(p.after.id)}
+                accent={D.pink}
+                height={240}
+              />
+              {!!(p.after.caption || p.before.caption) && (
+                <Text style={[sc.caption, { color: BASE.textSec }]}>{p.after.caption || p.before.caption}</Text>
+              )}
+            </View>
+          ))}
+        </View>
+      )}
+    </View>
+  );
+}
+const sc = StyleSheet.create({
+  banner:    { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: 12, paddingVertical: 10, paddingHorizontal: 12, marginTop: 4 },
+  bannerTxt: { flex: 1, fontSize: 13, fontWeight: '600', lineHeight: 18 },
+  bannerX:   { fontSize: 14, fontWeight: '800', paddingLeft: 8 },
+  title:     { fontSize: 16, fontWeight: '900', fontFamily: 'Georgia' },
+  sub:       { fontSize: 12, marginTop: 2 },
+  caption:   { fontSize: 12, marginTop: 6, fontStyle: 'italic' },
+});
+
 // ── Colour swatch ──────────────────────────────────────────────────────────
 function ColourSwatch({ c, selected, onPress, D }: { c: typeof HAIR_COLOURS[0]; selected: boolean; onPress: () => void; D: ReturnType<typeof palette> }) {
   return (
@@ -296,6 +357,8 @@ export default function BookingScreen() {
   const [settings,   setSettings]   = useState<any>(null);
   const [services,   setServices]   = useState<any[]>([]);
   const [addons,     setAddons]     = useState<any[]>([]);
+  const [gallery,    setGallery]    = useState<any[]>([]);
+  const [bannerDismissed, setBannerDismissed] = useState(false);
   const [D,          setD]          = useState(palette());
 
   // ── Booking state ─────────────────────────────────────────────────────
@@ -440,6 +503,11 @@ export default function BookingScreen() {
       })
       .catch(() => setLoadError(true))
       .finally(() => setLoading(false));
+
+    // Load the public before/after gallery for this provider (best-effort).
+    DiscoverApi.gallery(slug as string)
+      .then(r => setGallery(Array.isArray(r?.data) ? r.data : []))
+      .catch(() => setGallery([]));
   }, [slug]);
 
   // Pre-fill from JWT
@@ -1143,6 +1211,7 @@ export default function BookingScreen() {
             scrollEventThrottle={16}>
             <BizHeader biz={business} D={D} />
             <View style={{ paddingHorizontal: 16, paddingTop: 16 }}>
+              {step === 0 && <ProviderShowcase business={business} gallery={gallery} D={D} bannerDismissed={bannerDismissed} onDismiss={() => setBannerDismissed(true)} />}
               {renderContent()}
               <View style={{ height: 40 }} />
             </View>

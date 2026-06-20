@@ -1,6 +1,6 @@
 'use strict';
 
-const API_URL =
+export const API_URL =
   process.env.EXPO_PUBLIC_PINKBOOK_API_URL?.replace(/\/$/, '') ||
   'https://www.pinkbook.app';
 
@@ -135,7 +135,7 @@ export const OwnerApi = {
     request<{ gallery: any[] }>('/api/v1/brand-studio/gallery', {}, token),
 
   brandGalleryUpload: (token: string, body: { imageData: string; caption?: string; isBefore?: boolean; pairId?: string | null }) =>
-    request<{ image: any }>('/api/v1/brand-studio/gallery/upload', { method: 'POST', body: JSON.stringify(body) }, token),
+    request<{ success: boolean; data: any }>('/api/v1/brand-studio/gallery/upload', { method: 'POST', body: JSON.stringify(body) }, token),
 
   brandGalleryDelete: (token: string, id: string) =>
     request<any>(`/api/v1/brand-studio/gallery/${id}`, { method: 'DELETE' }, token),
@@ -195,6 +195,9 @@ export const DiscoverApi = {
 
   business: (slug: string) =>
     request<{ success: boolean; data: any }>(`/api/v1/brand-studio/public/profile/slug/${encodeURIComponent(slug)}`),
+
+  gallery: (slug: string) =>
+    request<{ success: boolean; data: any[] }>(`/api/v1/brand-studio/public/gallery/${encodeURIComponent(slug)}`),
 };
 
 // ── Public bookings ────────────────────────────────────────────────────────

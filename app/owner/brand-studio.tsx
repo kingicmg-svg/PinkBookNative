@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../hooks/useAuth';
 import { OwnerApi, SettingsApi } from '../services/ApiService';
+import BeforeAfterSlider from '../components/BeforeAfterSlider';
 import Colors from '../../constants/Colors';
 
 const C = Colors;
@@ -176,7 +177,7 @@ export default function BrandStudioScreen() {
         pairId: opts.pairId || null,
       });
       await loadGallery();
-      return r.image?.id;
+      return r.data?.id;
     } catch(e:any) { Alert.alert('Upload Failed', e.message||'Please try again.'); }
     finally { setUploading(false); }
   };
@@ -272,7 +273,8 @@ export default function BrandStudioScreen() {
               {beforeItems.map(beforeItem => {
                 const afterItem = afterMap[beforeItem.id] || null;
                 return (
-                  <View key={beforeItem.id} style={s.baPair}>
+                  <View key={beforeItem.id}>
+                    <View style={s.baPair}>
                     {/* Before slot */}
                     <View style={s.baSlot}>
                       <Text style={s.baLabel}>BEFORE</Text>
@@ -303,6 +305,13 @@ export default function BrandStudioScreen() {
                         </TouchableOpacity>
                       )}
                     </View>
+                    </View>
+                    {afterItem && (
+                      <View style={{ marginTop: 10 }}>
+                        <Text style={[s.baLabel, { marginBottom: 6 }]}>LIVE PREVIEW</Text>
+                        <BeforeAfterSlider beforeUri={imageUrl(beforeItem.id)} afterUri={imageUrl(afterItem.id)} height={220} accent={C.rose} />
+                      </View>
+                    )}
                   </View>
                 );
               })}
