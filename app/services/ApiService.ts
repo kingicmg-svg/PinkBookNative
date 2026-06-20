@@ -61,6 +61,9 @@ export const OwnerApi = {
   updateBooking: (token: string, id: string, body: any) =>
     request<{ booking: any }>(`/api/v1/bookings/${id}`, { method: 'PUT', body: JSON.stringify(body) }, token),
 
+  patchStatus: (token: string, id: string, status: string) =>
+    request<{ booking: any }>(`/api/v1/bookings/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }, token),
+
   getBooking: (token: string, id: string) =>
     request<{ booking: any }>(`/api/v1/bookings/${id}`, {}, token),
 

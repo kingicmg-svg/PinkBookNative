@@ -35,9 +35,141 @@ function StatCard({ icon, label, value, color, onPress }: { icon:string; label:s
   );
 }
 
+// ── Booking Detail Modal ────────────────────────────────────────────────────
+function BookingDetailModal({ booking, visible, onClose, onConfirm, onDeny, onStatusChange }:
+  { booking: any; visible: boolean; onClose: ()=>void; onConfirm: ()=>void; onDeny: ()=>void; onStatusChange: (s:string)=>void }) {
+  if (!booking) return null;
+  const status    = booking.status || 'pending';
+  const statusCol = STATUS_COLOR[status] || C.soft;
+  const isHair    = !!(booking.hairTexture || booking.hairType || booking.hairColors?.length);
+  const hasAddons = booking.addons?.length > 0;
+  const hasIntake = booking.intakeAnswers && Object.keys(booking.intakeAnswers).length > 0;
+
+  function DRow({ label, value }: { label: string; value: string }) {
+    if (!value) return null;
+    return (
+      <View style={dm.row}>
+        <Text style={dm.key}>{label}</Text>
+        <Text style={dm.val}>{value}</Text>
+      </View>
+    );
+  }
+
+  return (
+    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+      <View style={dm.container}>
+        <View style={dm.topBar}>
+          <TouchableOpacity onPress={onClose}><Text style={dm.closeBtn}>✕</Text></TouchableOpacity>
+          <Text style={dm.title}>Booking Detail</Text>
+          <View style={[dm.statusPill, { backgroundColor: statusCol + '20' }]}>
+            <Text style={[dm.statusPillTxt, { color: statusCol }]}>{STATUS_LABEL[status] || status}</Text>
+          </View>
+        </View>
+        <ScrollView contentContainerStyle={dm.scroll}>
+          <Text style={dm.clientName}>{booking.clientName || 'Client'}</Text>
+          {!!booking.clientEmail && <Text style={dm.contactLine}>✉ {booking.clientEmail}</Text>}
+          {!!booking.clientPhone && <Text style={dm.contactLine}>📞 {booking.clientPhone}</Text>}
+
+          <View style={dm.card}>
+            <Text style={dm.sectionHeader}>APPOINTMENT</Text>
+            <DRow label="Service"  value={booking.serviceName || ''} />
+            <DRow label="Date"     value={booking.date || (booking.startsAt ? new Date(booking.startsAt).toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric' }) : '')} />
+            <DRow label="Time"     value={booking.time || (booking.startsAt ? new Date(booking.startsAt).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' }) : '')} />
+            <DRow label="Payment"  value={booking.paymentMethod || ''} />
+            {booking.price != null && <DRow label="Total" value={`$${Number(booking.price).toFixed(2)}`} />}
+            {booking.deposit > 0   && <DRow label="Deposit" value={`$${Number(booking.deposit).toFixed(2)}`} />}
+          </View>
+
+          {hasAddons && (
+            <View style={dm.card}>
+              <Text style={dm.sectionHeader}>ADD-ONS</Text>
+              {booking.addons.map((a: string, i: number) => <Text key={i} style={dm.listItem}>• {a}</Text>)}
+            </View>
+          )}
+
+          {isHair && (
+            <View style={dm.card}>
+              <Text style={dm.sectionHeader}>HAIR DETAILS</Text>
+              <DRow label="Texture"   value={booking.hairTexture || ''} />
+              <DRow label="Hair Type" value={booking.hairType    || ''} />
+              {booking.hairColors?.length > 0 && <DRow label="Colour(s)" value={booking.hairColors.join(', ')} />}
+            </View>
+          )}
+
+          {hasIntake && (
+            <View style={dm.card}>
+              <Text style={dm.sectionHeader}>INTAKE FORM</Text>
+              {Object.entries(booking.intakeAnswers).map(([q, a]: [string, any]) => (
+                <View key={q} style={{ marginBottom: 8 }}>
+                  <Text style={dm.key}>{q}</Text>
+                  <Text style={[dm.val, { textAlign: 'left' }]}>{String(a)}</Text>
+                </View>
+              ))}
+            </View>
+          )}
+
+          {!!booking.clientNotes && (
+            <View style={dm.card}>
+              <Text style={dm.sectionHeader}>CLIENT NOTES</Text>
+              <Text style={[dm.val, { textAlign: 'left', marginTop: 4 }]}>{booking.clientNotes}</Text>
+            </View>
+          )}
+
+          {status === 'pending' && (
+            <View style={{ flexDirection: 'row', gap: 12, marginTop: 8 }}>
+              <TouchableOpacity style={[dm.actionBtn, { backgroundColor: C.success + '15', borderColor: C.success + '40', flex: 1 }]} onPress={onConfirm}>
+                <Text style={[dm.actionBtnTxt, { color: C.success }]}>✓ Confirm</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[dm.actionBtn, { backgroundColor: '#EF444415', borderColor: '#EF444440', flex: 1 }]} onPress={onDeny}>
+                <Text style={[dm.actionBtnTxt, { color: '#EF4444' }]}>✕ Deny</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+          {status === 'confirmed' && (
+            <View style={{ flexDirection: 'row', gap: 12, marginTop: 8 }}>
+              <TouchableOpacity style={[dm.actionBtn, { backgroundColor: '#6366F115', borderColor: '#6366F140', flex: 1 }]} onPress={() => onStatusChange('completed')}>
+                <Text style={[dm.actionBtnTxt, { color: '#6366F1' }]}>Mark Complete</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[dm.actionBtn, { backgroundColor: '#9CA3AF15', borderColor: '#9CA3AF40', flex: 1 }]} onPress={() => onStatusChange('noshow')}>
+                <Text style={[dm.actionBtnTxt, { color: '#9CA3AF' }]}>No-show</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+          {status !== 'cancelled' && status !== 'completed' && (
+            <TouchableOpacity style={[dm.actionBtn, { backgroundColor: '#EF444410', borderColor: '#EF444430', marginTop: 8 }]} onPress={() => onStatusChange('cancelled')}>
+              <Text style={[dm.actionBtnTxt, { color: '#EF4444', textAlign: 'center' }]}>Cancel Booking</Text>
+            </TouchableOpacity>
+          )}
+          <View style={{ height: 32 }} />
+        </ScrollView>
+      </View>
+    </Modal>
+  );
+}
+
+const dm = StyleSheet.create({
+  container:     { flex: 1, backgroundColor: C.cream },
+  topBar:        { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: C.border },
+  closeBtn:      { color: C.soft, fontSize: 18, fontWeight: '600', width: 40 },
+  title:         { fontSize: 16, fontWeight: '800', color: C.charcoal },
+  statusPill:    { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999 },
+  statusPillTxt: { fontSize: 11, fontWeight: '800' },
+  scroll:        { padding: 20, gap: 14 },
+  clientName:    { fontSize: 22, fontWeight: '900', color: C.charcoal, fontFamily: 'Georgia' },
+  contactLine:   { fontSize: 13, color: C.soft, fontWeight: '600', marginTop: 2 },
+  card:          { backgroundColor: C.white, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: C.border, gap: 2 },
+  sectionHeader: { fontSize: 10, fontWeight: '800', color: C.soft, letterSpacing: 1.5, marginBottom: 8 },
+  row:           { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: C.border },
+  key:           { fontSize: 13, color: C.soft, fontWeight: '600', flex: 0.45 },
+  val:           { fontSize: 13, color: C.charcoal, fontWeight: '600', textAlign: 'right', flex: 0.55 },
+  listItem:      { fontSize: 13, color: C.charcoal, fontWeight: '600', paddingVertical: 4 },
+  actionBtn:     { borderRadius: 12, padding: 14, borderWidth: 1, alignItems: 'center' },
+  actionBtnTxt:  { fontSize: 14, fontWeight: '800' },
+});
+
 // ── Booking Card ───────────────────────────────────────────────────────────
-function BookingCard({ item, onConfirm, onDeny }: { item:any; onConfirm:(id:string)=>void; onDeny:(id:string)=>void }) {
-  const clientName = item.clientName || item.client_name || item.contactName || 'Client';
+function BookingCard({ item, onPress, onConfirm, onDeny }: { item:any; onPress:()=>void; onConfirm:(id:string)=>void; onDeny:(id:string)=>void }) {
+  const clientName = item.clientName || item.client_name || item.contactName || item.contactName || '—';
   const service    = item.serviceName || item.service_name || item.service || '';
   const status     = item.status || 'pending';
   const statusCol  = STATUS_COLOR[status] || C.soft;
@@ -51,7 +183,7 @@ function BookingCard({ item, onConfirm, onDeny }: { item:any; onConfirm:(id:stri
   }
 
   return (
-    <View style={s.bookCard}>
+    <TouchableOpacity style={s.bookCard} onPress={onPress} activeOpacity={0.85}>
       <View style={[s.bookBar, { backgroundColor: statusCol }]} />
       <View style={s.bookBody}>
         <View style={s.bookTop}>
@@ -69,16 +201,16 @@ function BookingCard({ item, onConfirm, onDeny }: { item:any; onConfirm:(id:stri
         </View>
         {status === 'pending' && (
           <View style={s.bookActions}>
-            <TouchableOpacity style={s.confirmBtn} onPress={() => onConfirm(item.id)}>
+            <TouchableOpacity style={s.confirmBtn} onPress={(e) => { e.stopPropagation?.(); onConfirm(item.id); }}>
               <Text style={s.confirmBtnTxt}>✓ Confirm</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={s.denyBtn} onPress={() => onDeny(item.id)}>
+            <TouchableOpacity style={s.denyBtn} onPress={(e) => { e.stopPropagation?.(); onDeny(item.id); }}>
               <Text style={s.denyBtnTxt}>✕ Deny</Text>
             </TouchableOpacity>
           </View>
         )}
       </View>
-    </View>
+    </TouchableOpacity>
   );
 }
 
@@ -184,6 +316,7 @@ export default function CalendarScreen() {
   const [weekOffset, setWeekOffset] = useState(0);      // weeks relative to current week
   const [filter, setFilter]       = useState('All');
   const [addModal, setAddModal]   = useState(false);
+  const [detailBooking, setDetailBooking] = useState<any>(null);
 
   // Build 7-day strip for current week offset
   const weekStart = (() => {
@@ -243,8 +376,9 @@ export default function CalendarScreen() {
       { text: 'Cancel', style: 'cancel' },
       { text: 'Confirm', onPress: async () => {
         try {
-          await OwnerApi.updateBooking(token, id, { status: 'confirmed' });
+          await OwnerApi.patchStatus(token, id, 'confirmed');
           setBookings(bs => bs.map(b => b.id === id ? { ...b, status: 'confirmed' } : b));
+          setDetailBooking((d: any) => d?.id === id ? { ...d, status: 'confirmed' } : d);
         } catch (e: any) { Alert.alert('Error', e.message); }
       }},
     ]);
@@ -256,11 +390,22 @@ export default function CalendarScreen() {
       { text: 'Cancel', style: 'cancel' },
       { text: 'Deny', style: 'destructive', onPress: async () => {
         try {
-          await OwnerApi.updateBooking(token, id, { status: 'cancelled' });
+          await OwnerApi.patchStatus(token, id, 'cancelled');
           setBookings(bs => bs.map(b => b.id === id ? { ...b, status: 'cancelled' } : b));
+          setDetailBooking((d: any) => d?.id === id ? { ...d, status: 'cancelled' } : d);
         } catch (e: any) { Alert.alert('Error', e.message); }
       }},
     ]);
+  };
+
+  const handleStatusChange = async (id: string, status: string) => {
+    if (!token) return;
+    try {
+      await OwnerApi.patchStatus(token, id, status);
+      setBookings(bs => bs.map(b => b.id === id ? { ...b, status } : b));
+      setDetailBooking((d: any) => d?.id === id ? { ...d, status } : d);
+      if (status === 'cancelled' || status === 'completed') setDetailBooking(null);
+    } catch (e: any) { Alert.alert('Error', e.message); }
   };
 
   const handleAddBooking = async (body: any) => {
@@ -353,7 +498,7 @@ export default function CalendarScreen() {
           </View>
         ) : (
           filteredBookings.map((b, i) => (
-            <BookingCard key={b.id || i} item={b} onConfirm={handleConfirm} onDeny={handleDeny} />
+            <BookingCard key={b.id || i} item={b} onPress={() => setDetailBooking(b)} onConfirm={handleConfirm} onDeny={handleDeny} />
           ))
         )}
 
@@ -388,6 +533,14 @@ export default function CalendarScreen() {
       </ScrollView>
 
       <AddBookingModal visible={addModal} clients={clients} settings={settings} onClose={() => setAddModal(false)} onSave={handleAddBooking} />
+      <BookingDetailModal
+        booking={detailBooking}
+        visible={!!detailBooking}
+        onClose={() => setDetailBooking(null)}
+        onConfirm={() => detailBooking && handleConfirm(detailBooking.id)}
+        onDeny={() => detailBooking && handleDeny(detailBooking.id)}
+        onStatusChange={(st) => detailBooking && handleStatusChange(detailBooking.id, st)}
+      />
     </View>
   );
 }
