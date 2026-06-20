@@ -47,6 +47,32 @@ function palette(primaryHex?: string, accentHex?: string) {
   };
 }
 
+// ── Profession intake options (mirrors PWA shared-utils) ──────────────────
+const LASH_OPTIONS = [
+  { id: 'classic', label: 'Classic Set',       icon: '👁️', desc: 'A soft, everyday look with clean length and light definition.' },
+  { id: 'volume',  label: 'Volume / Wispy',    icon: '🌟', desc: 'Fuller fan work, wispy styling, and more dramatic density.' },
+  { id: 'lift',    label: 'Lash Lift & Tint',  icon: '💫', desc: 'Natural-lash enhancement with curl, lift, and optional tint.' },
+  { id: 'fill',    label: 'Fill / Maintenance', icon: '🔄', desc: 'Touch-up work for retention, balance, and shape correction.' },
+];
+const WAX_OPTIONS = [
+  { id: 'brows',  label: 'Brows & Face',       icon: '🤨', desc: 'Brows, lip, chin, nose, and other quick facial wax services.' },
+  { id: 'bikini', label: 'Brazilian / Bikini',  icon: '🌸', desc: 'Intimate-area waxing with prep and aftercare considerations.' },
+  { id: 'body',   label: 'Body Waxing',         icon: '🦵', desc: 'Legs, arms, back, chest, and larger-area body wax services.' },
+];
+const NAIL_FOCUS_OPTIONS = [
+  { id: 'acrylic', label: 'Extensions / Acrylic', icon: '💅', desc: 'Full sets, overlays, fills, and structured enhancement services.' },
+  { id: 'gel',     label: 'Gel Manicure',          icon: '✨', desc: 'Gel polish, overlays, BIAB, and long-wear natural nail services.' },
+  { id: 'natural', label: 'Natural Nail Care',      icon: '🌸', desc: 'Classic manicures, repair work, shaping, and strengthening care.' },
+  { id: 'pedi',    label: 'Pedicure',               icon: '🦶', desc: 'Spa pedicures, gel toes, callus care, and finish upgrades.' },
+];
+type ProfKey = 'hair'|'nail'|'lash'|'wax';
+const PROF_META: Record<ProfKey, { providerLabel:string; intakeStep:string; intakeTitle:string; intakeSub:string; intakeKey:string }> = {
+  hair: { providerLabel:'Stylist',       intakeStep:'Hair Texture',   intakeTitle:"What's your hair texture?",              intakeSub:'Helps your stylist prepare and give accurate timing.',               intakeKey:'Hair Texture' },
+  nail: { providerLabel:'Nail Tech',     intakeStep:'Service Focus',  intakeTitle:'What are you booking for today?',         intakeSub:'Helps your nail tech prep the right products and timing.',           intakeKey:'Service Focus' },
+  lash: { providerLabel:'Lash Artist',   intakeStep:'Set Preference', intakeTitle:'What lash look are you after?',           intakeSub:'Helps your lash artist plan the right set and timing.',             intakeKey:'Set Preference' },
+  wax:  { providerLabel:'Wax Specialist',intakeStep:'Service Area',   intakeTitle:'Which area are we focusing on today?',    intakeSub:'Helps your wax specialist prep timing and aftercare.',              intakeKey:'Service Area' },
+};
+
 // ── Hair textures ─────────────────────────────────────────────────────────
 const TEXTURES = [
   { id: 'straight', label: 'Straight',       icon: '—', desc: 'Fine to coarse, naturally falls flat with little to no wave or curl.' },
@@ -329,6 +355,10 @@ export default function BookingScreen() {
   const profession     = settings?.profession || business?.serviceCategory || business?.service_category || 'hair';
   const isHair         = profession === 'hair';
   const isNail         = profession === 'nail' || profession === 'nails';
+  const isLash         = profession === 'lash';
+  const isWax          = profession === 'wax';
+  const profKey        = (isHair ? 'hair' : isNail ? 'nail' : isLash ? 'lash' : isWax ? 'wax' : 'hair') as ProfKey;
+  const profMeta       = PROF_META[profKey];
   const workingHours   = settings?.workingHours || null;
   const slotInterval   = settings?.slotIntervalMinutes || 30;
   const hairHumanLabel = settings?.hairHumanLabel || 'Human Boho';
@@ -361,16 +391,16 @@ export default function BookingScreen() {
   const slots        = date ? buildSlots(workingHours, date, slotInterval) : [];
   const displayTimes = slots.length > 0 ? slots : FALLBACK_TIMES;
 
-  const STEPS = isNail
-    ? ['Nail Preferences', 'Service', 'Date & Time', 'Your Info', 'Review']
-    : isHair
-      ? ['Hair Texture', 'Service', 'Date & Time', 'Your Info', 'Review']
-      : ['Service', 'Date & Time', 'Your Info', 'Review'];
-  const CONTENT_KEYS = isNail
-    ? ['nail_intake', 'service', 'datetime', 'info', 'review']
-    : isHair
-      ? ['texture', 'service', 'datetime', 'info', 'review']
-      : ['service', 'datetime', 'info', 'review'];
+  const STEPS = isHair  ? ['Hair Texture',  'Service', 'Date & Time', 'Your Info', 'Review']
+    : isLash  ? ['Set Preference','Service', 'Date & Time', 'Your Info', 'Review']
+    : isWax   ? ['Service Area',   'Service', 'Date & Time', 'Your Info', 'Review']
+    : isNail  ? ['Service Focus',  'Nail Style', 'Service', 'Date & Time', 'Your Info', 'Review']
+    :           ['Service', 'Date & Time', 'Your Info', 'Review'];
+  const CONTENT_KEYS = isHair  ? ['texture',    'service', 'datetime', 'info', 'review']
+    : isLash  ? ['intake',     'service', 'datetime', 'info', 'review']
+    : isWax   ? ['intake',     'service', 'datetime', 'info', 'review']
+    : isNail  ? ['nail_focus', 'nail_style', 'service', 'datetime', 'info', 'review']
+    :           ['service',    'datetime',  'info', 'review'];
   const content    = CONTENT_KEYS[step] || 'service';
   const totalSteps = STEPS.length;
 
@@ -417,12 +447,14 @@ export default function BookingScreen() {
 
   const canAdvance = () => {
     switch (content) {
-      case 'texture':     return !!texture;
-      case 'nail_intake': return !!nailLength && !!nailShape;
-      case 'service':     return !!service;
-      case 'datetime':    return !!date && !!time;
-      case 'info':        return !!firstName && !!email && email.includes('@');
-      default:            return true;
+      case 'texture':    return !!texture;
+      case 'intake':     return !!texture;       // lash / wax intake selection
+      case 'nail_focus': return !!texture;       // nail service focus
+      case 'nail_style': return !!nailLength && !!nailShape;
+      case 'service':    return !!service;
+      case 'datetime':   return !!date && !!time;
+      case 'info':       return !!firstName && !!email && email.includes('@');
+      default:           return true;
     }
   };
 
@@ -509,6 +541,7 @@ export default function BookingScreen() {
             {!!service && <View style={s.confRow}><Text style={s.confKey}>Service</Text><Text style={s.confVal}>{service.name}</Text></View>}
             {selAddons.length > 0 && <View style={s.confRow}><Text style={s.confKey}>Add-ons</Text><Text style={s.confVal}>{selAddons.join(', ')}</Text></View>}
             {isHair && !!texture && <View style={s.confRow}><Text style={s.confKey}>Texture</Text><Text style={s.confVal}>{TEXTURES.find(t => t.id === texture)?.label || texture}</Text></View>}
+            {(isLash || isWax || isNail) && !!texture && <View style={s.confRow}><Text style={s.confKey}>{profMeta.intakeKey}</Text><Text style={s.confVal}>{texture}</Text></View>}
             {!!hairType && <View style={s.confRow}><Text style={s.confKey}>Hair Type</Text><Text style={s.confVal}>{hairType}</Text></View>}
             {hairColours.length > 0 && <View style={s.confRow}><Text style={s.confKey}>Colour(s)</Text><Text style={s.confVal}>{hairColours.join(', ')}</Text></View>}
             {isNail && !!nailLength && <View style={s.confRow}><Text style={s.confKey}>Nail Length</Text><Text style={s.confVal}>{nailLength}</Text></View>}
@@ -559,8 +592,8 @@ export default function BookingScreen() {
 
       case 'texture': return (
         <View>
-          <Text style={s.stepTitle}>What's your hair texture?</Text>
-          <Text style={[s.stepSub, { color: BASE.textSec }]}>Helps your stylist prepare and give accurate timing.</Text>
+          <Text style={s.stepTitle}>{profMeta.intakeTitle}</Text>
+          <Text style={[s.stepSub, { color: BASE.textSec }]}>{profMeta.intakeSub}</Text>
           {TEXTURES.map(t => (
             <TouchableOpacity key={t.id} style={[s.card, { backgroundColor: D.bgCard, borderColor: D.bgElevated }, texture === t.id && { borderColor: D.pink, backgroundColor: D.cardOn }]} onPress={() => setTexture(t.id)}>
               <View style={[s.texIcon, { backgroundColor: texture === t.id ? D.pink : D.bgElevated }]}>
@@ -576,6 +609,47 @@ export default function BookingScreen() {
         </View>
       );
 
+      // ── Generic intake for lash / wax (and nail service focus) ────────
+      case 'intake':
+      case 'nail_focus': {
+        const opts = isLash ? LASH_OPTIONS : isWax ? WAX_OPTIONS : NAIL_FOCUS_OPTIONS;
+        return (
+          <View>
+            <Text style={s.stepTitle}>{profMeta.intakeTitle}</Text>
+            <Text style={[s.stepSub, { color: BASE.textSec }]}>{profMeta.intakeSub}</Text>
+            {opts.map(o => (
+              <TouchableOpacity key={o.id} style={[s.card, { backgroundColor: D.bgCard, borderColor: D.bgElevated }, texture === o.id && { borderColor: D.pink, backgroundColor: D.cardOn }]} onPress={() => setTexture(o.id)}>
+                <View style={[s.texIcon, { backgroundColor: texture === o.id ? D.pink : D.bgElevated }]}>
+                  <Text style={{ fontSize: 16 }}>{o.icon}</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[s.cardTitle, texture === o.id && { color: D.pink }]}>{o.label}</Text>
+                  <Text style={[s.cardSub, { color: BASE.textSec }]}>{o.desc}</Text>
+                </View>
+                {texture === o.id && <View style={[s.check, { backgroundColor: D.pink }]}><Text style={{ color: BASE.white, fontSize: 11, fontWeight: '900' }}>✓</Text></View>}
+              </TouchableOpacity>
+            ))}
+          </View>
+        );
+      }
+
+      // ── Nail style (length + shape) — only for nail, step 2 ──────────
+      case 'nail_style': return (
+        <View>
+          <Text style={s.stepTitle}>Nail Style</Text>
+          <Text style={[s.stepSub, { color: BASE.textSec }]}>Help your nail tech prep the perfect set.</Text>
+          <Text style={s.sectionTitle}>Nail Length</Text>
+          <View style={s.pillRow}>
+            {NAIL_LENGTHS.map(l => <Pill key={l} label={l} selected={nailLength === l} onPress={() => setNailLength(l)} D={D} />)}
+          </View>
+          <Text style={[s.sectionTitle, { marginTop: 20 }]}>Nail Shape</Text>
+          <View style={s.pillRow}>
+            {NAIL_SHAPES.map(sh => <Pill key={sh} label={sh} selected={nailShape === sh} onPress={() => setNailShape(sh)} D={D} />)}
+          </View>
+        </View>
+      );
+
+      // ── DEPRECATED — kept for safety ──────────────────────────────────
       case 'nail_intake': return (
         <View>
           <Text style={s.stepTitle}>Nail Preferences</Text>
@@ -812,6 +886,11 @@ export default function BookingScreen() {
           <View style={[s.summaryCard, { backgroundColor: D.bgCard, borderColor: D.borderMid }]}>
             <Text style={[s.summaryTitle, { color: BASE.textPrimary }]}>{business?.businessName || business?.business_name || 'Appointment'}</Text>
             {isHair && !!texture && <SumRow k="Hair Texture" v={TEXTURES.find(t => t.id === texture)?.label || texture} D={D} />}
+            {(isLash || isWax || isNail) && !!texture && <SumRow k={profMeta.intakeKey} v={
+              isLash ? (LASH_OPTIONS.find(o => o.id === texture)?.label || texture)
+              : isWax ? (WAX_OPTIONS.find(o => o.id === texture)?.label || texture)
+              : (NAIL_FOCUS_OPTIONS.find(o => o.id === texture)?.label || texture)
+            } D={D} />}
             {isNail && !!nailLength && <SumRow k="Nail Length" v={nailLength} D={D} />}
             {isNail && !!nailShape  && <SumRow k="Nail Shape"  v={nailShape}  D={D} />}
             {!!service && <SumRow k="Service" v={service.name + ' · $' + Number(service.price).toFixed(2)} D={D} />}
