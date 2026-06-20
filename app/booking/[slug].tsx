@@ -267,6 +267,7 @@ export default function BookingScreen() {
   const [intakeAnswers, setIntakeAnswers] = useState<Record<string, string>>({});
   const [confirmed,     setConfirmed]     = useState(false);
   const [confId,        setConfId]        = useState('');
+  const [confToken,     setConfToken]     = useState('');
 
   // ── Swipe-down to dismiss ─────────────────────────────────────────────
   const slideY    = useRef(new Animated.Value(0)).current;
@@ -431,6 +432,7 @@ export default function BookingScreen() {
         status: payMethod === 'cash' ? 'confirmed' : 'pending',
       });
       setConfId(r?.booking?.id || r?.id || '');
+      setConfToken(r?.booking?.manageToken || r?.booking?.manage_token || '');
       setConfirmed(true);
     } catch (e: any) {
       Alert.alert('Booking Failed', e?.message || 'Could not complete booking.');
@@ -485,11 +487,22 @@ export default function BookingScreen() {
               </Text>
             </View>
           )}
-          <TouchableOpacity style={[s.confBtn, { backgroundColor: D.pink }]} onPress={() => router.replace('/(consumer-tabs)/bookings' as any)}>
-            <Text style={s.confBtnTxt}>View My Bookings</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={{ marginTop: 12 }} onPress={() => router.back()}>
-            <Text style={{ color: BASE.textSec, fontSize: 14 }}>← Back</Text>
+          {confToken ? (
+            <TouchableOpacity style={[s.confBtn, { backgroundColor: D.pink }]} onPress={() => router.push(`/consumer/manage-booking?token=${confToken}` as any)}>
+              <Text style={s.confBtnTxt}>View My Booking</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity style={[s.confBtn, { backgroundColor: D.pink }]} onPress={() => router.replace('/(consumer-tabs)/bookings' as any)}>
+              <Text style={s.confBtnTxt}>View My Bookings</Text>
+            </TouchableOpacity>
+          )}
+          {!!token && !!confToken && (
+            <TouchableOpacity style={{ marginTop: 10, paddingVertical: 10 }} onPress={() => router.replace('/(consumer-tabs)/bookings' as any)}>
+              <Text style={{ color: BASE.textSec, fontSize: 13, fontWeight: '600', textAlign: 'center' }}>View All Bookings →</Text>
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity style={{ marginTop: 8 }} onPress={() => router.back()}>
+            <Text style={{ color: BASE.textMuted, fontSize: 14, textAlign: 'center' }}>← Back</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
