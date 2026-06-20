@@ -56,11 +56,12 @@ export default function SettingsScreen() {
   const tier = user?.subscription_tier || user?.tier || settings?.subscriptionTier || settings?.subscription_tier || 'starter';
   const tierMeta = TIER_META[tier] || TIER_META.starter;
   const slug = brandSlug || settings?.bookingSlug || settings?.booking_slug || '';
-  const bookingLink = slug ? `pinkbook.app/${slug}` : null;
+  const bookingLink = slug ? `pinkbook.app/pinkbook-booking.html?name=${slug}` : null;
+  const bookingUrl  = slug ? `https://pinkbook.app/pinkbook-booking.html?name=${encodeURIComponent(slug)}` : null;
 
   const shareLink = async () => {
     if (!bookingLink) return;
-    await Share.share({ message: `Book with me on PinkBook: https://${bookingLink}` });
+    await Share.share({ message: `Book with me on PinkBook: ${bookingUrl}` });
   };
 
   const confirmSignOut = () => {
@@ -103,7 +104,7 @@ export default function SettingsScreen() {
           </View>
           <View style={{ gap: 6 }}>
             {!!slug && (
-              <TouchableOpacity style={s.shareBtn} onPress={() => Linking.openURL(`https://pinkbook.app/${slug}`)}
+              <TouchableOpacity style={s.shareBtn} onPress={() => bookingUrl && Linking.openURL(bookingUrl)}>
               >
                 <Text style={s.shareBtnTxt}>Preview</Text>
               </TouchableOpacity>
