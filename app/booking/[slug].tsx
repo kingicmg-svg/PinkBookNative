@@ -465,28 +465,38 @@ export default function BookingScreen() {
     setSubmitting(true);
     try {
       const r = await BookingApi.submit({
-        ownerSlug: slug,
-        ownerId:   business?.ownerId || business?.owner_id || '',
-        clientName: (firstName + ' ' + lastName).trim(),
         email, phone,
-        service: service?.name || '',
-        servicePrice: service?.price,
-        duration: service ? (service.durFrom + (service.durTo ? '–' + service.durTo : '')) : '',
-        addons: selAddons,
-        hairTexture: texture || undefined,
-        hairType: hairType || undefined,
-        hairColors: hairColours.length ? hairColours : undefined,
-        hairMixCharge: hairMixCharge > 0 ? hairMixCharge : undefined,
-        nailLength: nailLength || undefined,
-        nailShape: nailShape || undefined,
-        date, dateLabel: date ? fmtLong(date) : '', time,
+        clientName:   (firstName + ' ' + lastName).trim(),
+        firstName, lastName,
+        service:      service?.name || '',
+        serviceName:  service?.name || '',
+        servicePrice: Number(service?.price) || 0,
+        duration:     service?.durFrom || '',
+        ownerId:      business?.ownerId || business?.owner_id || '',
+        deposit:      deposit,
+        addons:       selAddons,
+        date,
+        dateLabel:    date ? fmtLong(date) : '',
+        time,
         paymentMethod: payMethod,
-        notes: note || undefined,
-        promoCode: promoCode || undefined,
+        promoCode:    promoCode || undefined,
+        notes:        note || undefined,
         intakeAnswers: Object.keys(intakeAnswers).length ? intakeAnswers : undefined,
-        businessName: business?.businessName || business?.business_name || '',
-        deposit,
-        status: payMethod === 'cash' ? 'confirmed' : 'pending',
+        // Profession-specific intake (backend reads 'texture' for hair)
+        texture:      texture || undefined,
+        ...(isHair ? {
+          hairTexture:  texture || undefined,
+          hairType:     hairType || undefined,
+          hairColors:   hairColours.length ? hairColours : undefined,
+        } : isNail ? {
+          nailFocus:    texture || undefined,
+          nailLength:   nailLength || undefined,
+          nailShape:    nailShape  || undefined,
+        } : isLash ? {
+          lashPreference: texture || undefined,
+        } : isWax ? {
+          waxArea:      texture || undefined,
+        } : {}),
       });
       setConfId(r?.booking?.id || r?.id || '');
       setConfToken(r?.booking?.manageToken || r?.booking?.manage_token || '');
