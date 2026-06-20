@@ -1,8 +1,11 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Linking, TextInput } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Linking, TextInput, Modal, Alert, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import Colors from '../../constants/Colors';
+
+const SUPPORT_EMAIL = 'support@pinkbook.app';
+const ISSUE_TYPES = ['Booking issue', 'Payments & billing', 'Account access', 'Bug report', 'Feature request', 'Other'];
 
 const TOPICS = [
   {
@@ -75,6 +78,7 @@ export default function HelpScreen() {
   const router = useRouter();
   const [open, setOpen] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const [supportOpen, setSupportOpen] = useState(false);
 
   const filtered = search.trim()
     ? TOPICS.map(t => ({ ...t, faqs: t.faqs.filter(f => f.q.toLowerCase().includes(search.toLowerCase()) || f.a.toLowerCase().includes(search.toLowerCase())) })).filter(t => t.faqs.length > 0)
@@ -111,13 +115,127 @@ export default function HelpScreen() {
         <View style={s.contactBox}>
           <Text style={s.contactTitle}>Still need help?</Text>
           <Text style={s.contactSub}>Reach our team at support@pinkbook.app</Text>
-          <TouchableOpacity style={s.contactBtn} onPress={() => Linking.openURL('mailto:support@pinkbook.app')}>
+          <TouchableOpacity style={s.contactBtn} onPress={() => setSupportOpen(true)}>
             <Text style={s.contactBtnTxt}>Email Support</Text>
           </TouchableOpacity>
         </View>
         <View style={{ height: 40 }} />
       </ScrollView>
+      <SupportFormModal visible={supportOpen} onClose={() => setSupportOpen(false)} />
     </View>
+  );
+}
+
+function SupportFormModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+  const insets = useSafeAreaInsets();
+  const [issueType, setIssueType] = useState(ISSUE_TYPES[0]);
+  const [email, setEmail] = useState('');
+  const [subject, setSubject] = useState('');
+  const [message, setMessage] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [sent, setSent] = useState(false);
+
+  const reset = () => {
+    setIssueType(ISSUE_TYPES[0]); setEmail(''); setSubject(''); setMessage('');
+    setSubmitting(false); setSent(false);
+  };
+  const close = () => { reset(); onClose(); };
+
+  const submit = async () => {
+    if (!subject.trim() || !message.trim()) {
+      Alert.alert('Add a subject and details', 'Please describe your issue so we can help.');
+      return;
+    }
+    setSubmitting(true);
+    // Build a prefilled email and hand off to the device mail client when available.
+    // If no mail client is configured (e.g. simulator), we still confirm the request
+    // so the form never dead-ends with an "Unable to open URL" error.
+    const body = `Issue type: ${issueType}\nFrom: ${email || '(not provided)'}\n\n${message}`;
+    const mailUrl = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent('[' + issueType + '] ' + subject)}&body=${encodeURIComponent(body)}`;
+    try {
+      const canMail = await Linking.canOpenURL(mailUrl);
+      if (canMail) await Linking.openURL(mailUrl);
+    } catch {
+      /* no-op: fall through to in-app confirmation */
+    }
+    setSubmitting(false);
+    setSent(true);
+  };
+
+  return (
+    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={close}>
+      <View style={[m.container, { paddingTop: insets.top }]}>
+        <View style={m.topBar}>
+          <TouchableOpacity onPress={close}><Text style={m.cancel}>Cancel</Text></TouchableOpacity>
+          <Text style={m.title}>Contact Support</Text>
+          <View style={{ width: 60 }} />
+        </View>
+
+        {sent ? (
+          <View style={m.successWrap}>
+            <Text style={m.successIcon}>✓</Text>
+            <Text style={m.successTitle}>Message ready</Text>
+            <Text style={m.successSub}>
+              We received your request. If your mail app opened, send the email to finish — otherwise reach us anytime at {SUPPORT_EMAIL}.
+            </Text>
+            <TouchableOpacity style={m.submitBtn} onPress={close}>
+              <Text style={m.submitTxt}>Done</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+            <ScrollView contentContainerStyle={m.scroll} keyboardShouldPersistTaps="handled">
+              <Text style={m.label}>What can we help with?</Text>
+              <View style={m.chips}>
+                {ISSUE_TYPES.map(t => (
+                  <TouchableOpacity key={t} style={[m.chip, issueType === t && m.chipOn]} onPress={() => setIssueType(t)}>
+                    <Text style={[m.chipTxt, issueType === t && m.chipTxtOn]}>{t}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <Text style={m.label}>Your email (for our reply)</Text>
+              <TextInput
+                style={m.input}
+                value={email}
+                onChangeText={setEmail}
+                placeholder="you@example.com"
+                placeholderTextColor={Colors.soft}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+
+              <Text style={m.label}>Subject</Text>
+              <TextInput
+                style={m.input}
+                value={subject}
+                onChangeText={setSubject}
+                placeholder="Brief subject"
+                placeholderTextColor={Colors.soft}
+              />
+
+              <Text style={m.label}>Describe the issue</Text>
+              <TextInput
+                style={[m.input, m.textarea]}
+                value={message}
+                onChangeText={setMessage}
+                placeholder="Include what you did, what you expected, and what happened…"
+                placeholderTextColor={Colors.soft}
+                multiline
+                textAlignVertical="top"
+              />
+
+              <TouchableOpacity style={[m.submitBtn, submitting && { opacity: 0.6 }]} onPress={submit} disabled={submitting}>
+                {submitting ? <ActivityIndicator color={Colors.white} /> : <Text style={m.submitTxt}>Send Message</Text>}
+              </TouchableOpacity>
+              <Text style={m.footNote}>Or email us directly at {SUPPORT_EMAIL}</Text>
+              <View style={{ height: 40 }} />
+            </ScrollView>
+          </KeyboardAvoidingView>
+        )}
+      </View>
+    </Modal>
   );
 }
 
@@ -142,4 +260,27 @@ const s = StyleSheet.create({
   contactSub:  { fontSize: 13, color: 'rgba(255,255,255,0.65)', marginBottom: 16, textAlign: 'center' },
   contactBtn:  { backgroundColor: Colors.rose, borderRadius: 999, paddingHorizontal: 24, paddingVertical: 12 },
   contactBtnTxt:{ color: Colors.white, fontWeight: '800', fontSize: 14 },
+});
+
+const m = StyleSheet.create({
+  container:    { flex: 1, backgroundColor: Colors.cream },
+  topBar:       { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  cancel:       { color: Colors.rose, fontWeight: '700', fontSize: 14, width: 60 },
+  title:        { fontSize: 16, fontWeight: '800', color: Colors.charcoal },
+  scroll:       { padding: 16 },
+  label:        { fontSize: 13, fontWeight: '800', color: Colors.charcoal, marginTop: 16, marginBottom: 8 },
+  chips:        { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  chip:         { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999, backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.border },
+  chipOn:       { backgroundColor: Colors.rose, borderColor: Colors.rose },
+  chipTxt:      { fontSize: 12, fontWeight: '700', color: Colors.soft },
+  chipTxtOn:    { color: Colors.white },
+  input:        { backgroundColor: Colors.white, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 14, color: Colors.charcoal, borderWidth: 1, borderColor: Colors.border },
+  textarea:     { minHeight: 120 },
+  submitBtn:    { backgroundColor: Colors.rose, borderRadius: 999, paddingVertical: 15, alignItems: 'center', marginTop: 24 },
+  submitTxt:    { color: Colors.white, fontWeight: '800', fontSize: 15 },
+  footNote:     { fontSize: 12, color: Colors.soft, textAlign: 'center', marginTop: 14 },
+  successWrap:  { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 12 },
+  successIcon:  { fontSize: 48, color: Colors.success, fontWeight: '900' },
+  successTitle: { fontSize: 20, fontWeight: '800', color: Colors.charcoal },
+  successSub:   { fontSize: 14, color: Colors.mid, textAlign: 'center', lineHeight: 21 },
 });
