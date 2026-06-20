@@ -45,6 +45,12 @@ export const OwnerApi = {
   login: (body: { email: string; password: string }) =>
     request<{ user: any; token: string }>('/api/v1/auth/login', { method: 'POST', body: JSON.stringify(body) }),
 
+  googleSignIn: (idToken: string) =>
+    request<{ user: any; token: string }>('/api/v1/auth/google', { method: 'POST', body: JSON.stringify({ idToken }) }),
+
+  getConfig: () =>
+    request<{ googleClientId: string | null }>('/api/v1/auth/config'),
+
   me: (token: string) =>
     request<{ user: any }>('/api/v1/auth/me', {}, token),
 
@@ -113,6 +119,10 @@ export const OwnerApi = {
   deletePromo: (token: string, id: string) =>
     request<{ success: boolean }>(`/api/v1/promos/${id}`, { method: 'DELETE' }, token),
 
+  // ── Calendar export ──
+  calendarExport: (token: string) =>
+    `${API_URL}/api/calendar/pro-export?token=${encodeURIComponent(token)}`,
+
   // ── Brand profile (slug, colors, booking page) ──
   brandProfile: (token: string) =>
     request<{ success: boolean; data: any }>('/api/v1/brand-studio/profile', {}, token),
@@ -153,6 +163,12 @@ export const ClientApi = {
       method: 'POST',
       body: JSON.stringify(body),
     }),
+
+  googleSignIn: (idToken: string) =>
+    request<{ client: any; token: string }>('/api/client/auth/google', { method: 'POST', body: JSON.stringify({ idToken }) }),
+
+  getConfig: () =>
+    request<{ googleClientId: string | null }>('/api/client/auth/config'),
 
   me: (token: string) =>
     request<{ client: any }>('/api/client/auth/me', {}, token),

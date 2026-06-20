@@ -13,15 +13,38 @@ const { height: SCREEN_H } = Dimensions.get('window');
 
 // ── Dynamic palette from brand colour ─────────────────────────────────────
 const BASE = {
-  bgBase: '#110A0E', bgCard: '#1A1014', bgElevated: '#221520',
   textPrimary: '#F5EEF0', textSec: '#9E8A90', textMuted: '#5C4A52',
   white: '#FFFFFF', gold: '#C9A96E',
   success: '#1A9E4A', successBg: 'rgba(26,158,74,0.12)',
   promoGreen: 'rgba(45,184,122,0.10)',
 };
-function palette(accentHex?: string) {
-  const a = /^#[0-9A-Fa-f]{6}$/.test(accentHex || '') ? accentHex! : '#D4417A';
-  return { ...BASE, pink: a, pinkGlow: a + '45', border: a + '25', borderMid: a + '40', cardOn: a + '12' };
+
+function _hexToRgb(hex: string) {
+  const m = /^#([0-9a-f]{6})$/i.exec((hex || '').trim());
+  if (!m) return null;
+  return { r: parseInt(m[1].slice(0,2),16), g: parseInt(m[1].slice(2,4),16), b: parseInt(m[1].slice(4,6),16) };
+}
+function _dark(hex: string, f: number): string {
+  const rgb = _hexToRgb(hex);
+  if (!rgb) return '#110A0E';
+  const r = Math.round(rgb.r * f).toString(16).padStart(2,'0');
+  const g = Math.round(rgb.g * f).toString(16).padStart(2,'0');
+  const b = Math.round(rgb.b * f).toString(16).padStart(2,'0');
+  return `#${r}${g}${b}`;
+}
+
+function palette(primaryHex?: string, accentHex?: string) {
+  const p = /^#[0-9A-Fa-f]{6}$/.test(primaryHex || '') ? primaryHex! : '#D4417A';
+  const a = /^#[0-9A-Fa-f]{6}$/.test(accentHex  || '') ? accentHex!  : '#FDE8EF';
+  // Derive very dark brand-tinted backgrounds from primary
+  const bgBase     = _dark(p, 0.10);
+  const bgCard     = _dark(p, 0.15);
+  const bgElevated = _dark(p, 0.20);
+  return {
+    ...BASE, bgBase, bgCard, bgElevated,
+    pink: p, accent: a,
+    pinkGlow: p + '45', border: p + '25', borderMid: p + '40', cardOn: p + '12',
+  };
 }
 
 // ── Hair textures ─────────────────────────────────────────────────────────
@@ -132,7 +155,7 @@ function StepDots({ total, current, D }: { total: number; current: number; D: Re
         <View key={i} style={[
           { height: 6, borderRadius: 3 },
           { width: i === current ? 20 : 6 },
-          { backgroundColor: i < current ? D.pink + '80' : i === current ? D.pink : BASE.bgElevated },
+          { backgroundColor: i < current ? D.pink + '80' : i === current ? D.pink : D.bgElevated },
         ]} />
       ))}
     </View>
@@ -149,7 +172,7 @@ function BizHeader({ biz, D }: { biz: any; D: ReturnType<typeof palette> }) {
   const city     = biz?.city;
   const bio      = biz?.bio;
   return (
-    <View style={[hdr.card, { borderColor: D.borderMid }]}>
+    <View style={[hdr.card, { backgroundColor: D.bgCard, borderColor: D.borderMid }]}>
       <View style={[hdr.avatar, { backgroundColor: D.pink }]}>
         <Text style={hdr.initials}>{initials}</Text>
       </View>
@@ -171,7 +194,7 @@ function BizHeader({ biz, D }: { biz: any; D: ReturnType<typeof palette> }) {
   );
 }
 const hdr = StyleSheet.create({
-  card:     { flexDirection: 'row', gap: 14, backgroundColor: BASE.bgCard, borderRadius: 16, padding: 16, marginHorizontal: 16, marginTop: 8, marginBottom: 4, borderWidth: 1 },
+  card:     { flexDirection: 'row', gap: 14, backgroundColor: '#1A1014', borderRadius: 16, padding: 16, marginHorizontal: 16, marginTop: 8, marginBottom: 4, borderWidth: 1 },
   avatar:   { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center' },
   initials: { fontSize: 20, fontWeight: '900', color: BASE.white },
   name:     { fontSize: 17, fontWeight: '900', fontFamily: 'Georgia', marginBottom: 4 },
@@ -210,13 +233,13 @@ const csw = StyleSheet.create({
 // ── Pill ──────────────────────────────────────────────────────────────────
 function Pill({ label, selected, onPress, D }: { label: string; selected: boolean; onPress: () => void; D: ReturnType<typeof palette> }) {
   return (
-    <TouchableOpacity onPress={onPress} style={[pl.wrap, selected && { borderColor: D.pink, backgroundColor: D.cardOn }]}>
+    <TouchableOpacity onPress={onPress} style={[pl.wrap, { backgroundColor: D.bgCard }, selected && { borderColor: D.pink, backgroundColor: D.cardOn }]}>
       <Text style={[pl.txt, { color: selected ? D.pink : BASE.textSec, fontWeight: selected ? '700' : '500' }]}>{label}</Text>
     </TouchableOpacity>
   );
 }
 const pl = StyleSheet.create({
-  wrap: { paddingHorizontal: 18, paddingVertical: 9, borderRadius: 999, borderWidth: 1.5, borderColor: '#2A1E23', backgroundColor: BASE.bgCard },
+  wrap: { paddingHorizontal: 18, paddingVertical: 9, borderRadius: 999, borderWidth: 1.5, borderColor: '#2A1E23', backgroundColor: '#1A1014' },
   txt:  { fontSize: 14 },
 });
 
@@ -358,8 +381,9 @@ export default function BookingScreen() {
       .then(r => {
         const biz = r?.data || r || {};
         setBusiness(biz);
-        const accent = biz.primaryColor || biz.accentColor || biz.primary_color || '#D4417A';
-        setD(palette(accent));
+        const accent  = biz.primaryColor || biz.primary_color || '#D4417A';
+        const accentL = biz.accentColor  || biz.accentColorLight || '#FDE8EF';
+        setD(palette(accent, accentL));
         const ownerId = biz.ownerId || biz.owner_id || '';
         if (ownerId) {
           BookingApi.settings(ownerId)
@@ -443,7 +467,7 @@ export default function BookingScreen() {
   // ── Load error (fallback to web) ──────────────────────────────────────
   const webUrl = `https://pinkbook.app/pinkbook-booking.html?name=${encodeURIComponent(String(slug || ''))}` ;
   if (!loading && loadError) return (
-    <View style={[s.fill, { backgroundColor: BASE.bgBase, justifyContent: 'center', alignItems: 'center', padding: 32, paddingTop: insets.top }]}>
+    <View style={[s.fill, { backgroundColor: D.bgBase, justifyContent: 'center', alignItems: 'center', padding: 32, paddingTop: insets.top }]}>
       <Text style={{ fontSize: 36, marginBottom: 16 }}>⚠️</Text>
       <Text style={{ color: BASE.textPrimary, fontSize: 17, fontWeight: '800', marginBottom: 8, textAlign: 'center' }}>Couldn't load booking page</Text>
       <Text style={{ color: BASE.textSec, fontSize: 14, textAlign: 'center', marginBottom: 32, lineHeight: 20 }}>There was a problem fetching this page. You can open it in your browser instead.</Text>
@@ -461,7 +485,7 @@ export default function BookingScreen() {
 
   // ── Loading ───────────────────────────────────────────────────────────
   if (loading) return (
-    <View style={[s.fill, { backgroundColor: BASE.bgBase, justifyContent: 'center', alignItems: 'center', paddingTop: insets.top }]}>
+    <View style={[s.fill, { backgroundColor: D.bgBase, justifyContent: 'center', alignItems: 'center', paddingTop: insets.top }]}>
       <ActivityIndicator color="#D4417A" size="large" />
       <Text style={{ color: BASE.textSec, marginTop: 12, fontSize: 14 }}>Loading booking page…</Text>
     </View>
@@ -469,16 +493,16 @@ export default function BookingScreen() {
 
   // ── Confirmation screen ────────────────────────────────────────────────
   if (confirmed) return (
-    <View style={[s.fill, { backgroundColor: BASE.bgBase, paddingTop: insets.top, paddingBottom: insets.bottom + 16 }]}>
+    <View style={[s.fill, { backgroundColor: D.bgBase, paddingTop: insets.top, paddingBottom: insets.bottom + 16 }]}>
       <ScrollView contentContainerStyle={{ flexGrow: 1, alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-        <View style={[s.confCard, { borderColor: D.borderMid }]}>
+        <View style={[s.confCard, { backgroundColor: D.bgCard, borderColor: D.borderMid }]}>
           <Text style={{ fontSize: 52, marginBottom: 12 }}>🌸</Text>
           <Text style={[s.confTitle, { color: D.pink }]}>You're Booked!</Text>
           <Text style={[s.confSub, { color: BASE.textSec }]}>
             Confirmation sent to{'\n'}<Text style={{ color: BASE.textPrimary, fontWeight: '700' }}>{email}</Text>
           </Text>
           {!!confId && <Text style={[s.confRef, { color: BASE.textMuted, borderColor: D.border }]}>Booking #{confId}</Text>}
-          <View style={[s.confBox, { borderColor: D.border, backgroundColor: BASE.bgBase }]}>
+          <View style={[s.confBox, { borderColor: D.border, backgroundColor: D.bgBase }]}>
             {!!(business?.businessName || business?.business_name) && (
               <View style={s.confRow}><Text style={s.confKey}>Studio</Text><Text style={[s.confVal, { color: D.pink }]}>{business.businessName || business.business_name}</Text></View>
             )}
@@ -538,8 +562,8 @@ export default function BookingScreen() {
           <Text style={s.stepTitle}>What's your hair texture?</Text>
           <Text style={[s.stepSub, { color: BASE.textSec }]}>Helps your stylist prepare and give accurate timing.</Text>
           {TEXTURES.map(t => (
-            <TouchableOpacity key={t.id} style={[s.card, texture === t.id && { borderColor: D.pink, backgroundColor: D.cardOn }]} onPress={() => setTexture(t.id)}>
-              <View style={[s.texIcon, { backgroundColor: texture === t.id ? D.pink : BASE.bgElevated }]}>
+            <TouchableOpacity key={t.id} style={[s.card, { backgroundColor: D.bgCard, borderColor: D.bgElevated }, texture === t.id && { borderColor: D.pink, backgroundColor: D.cardOn }]} onPress={() => setTexture(t.id)}>
+              <View style={[s.texIcon, { backgroundColor: texture === t.id ? D.pink : D.bgElevated }]}>
                 <Text style={{ fontSize: 16, fontWeight: '700', color: texture === t.id ? BASE.white : BASE.textSec }}>{t.icon}</Text>
               </View>
               <View style={{ flex: 1 }}>
@@ -573,7 +597,7 @@ export default function BookingScreen() {
           <Text style={[s.stepSub, { color: BASE.textSec }]}>All pricing and durations shown upfront.</Text>
 
           {services.length === 0 ? (
-            <View style={[s.emptyBox, { borderColor: D.border }]}>
+            <View style={[s.emptyBox, { backgroundColor: D.bgCard, borderColor: D.border }]}>
               <Text style={{ color: BASE.textSec, textAlign: 'center', fontSize: 14 }}>No services available. Check back soon.</Text>
             </View>
           ) : services.map((sv: any, i: number) => {
@@ -581,7 +605,7 @@ export default function BookingScreen() {
             const sel = service?.name === sv.name;
             return (
               <TouchableOpacity key={i}
-                style={[s.serviceCard, sel && { borderColor: D.pink, backgroundColor: D.cardOn }]}
+                style={[s.serviceCard, { backgroundColor: D.bgCard, borderColor: D.bgElevated }, sel && { borderColor: D.pink, backgroundColor: D.cardOn }]}
                 onPress={() => { setService(sv); setSelAddons([]); setHairType(''); setHairColours([]); }}>
                 <View style={{ flex: 1 }}>
                   <Text style={[s.cardTitle, sel && { color: D.pink }]}>{sv.name}</Text>
@@ -609,7 +633,7 @@ export default function BookingScreen() {
                     const on = selAddons.includes(a.name);
                     return (
                       <TouchableOpacity key={i}
-                        style={[s.addonCard, on && { borderColor: D.pink, backgroundColor: D.cardOn }]}
+                        style={[s.addonCard, { backgroundColor: D.bgCard, borderColor: D.bgElevated }, on && { borderColor: D.pink, backgroundColor: D.cardOn }]}
                         onPress={() => setSelAddons(p => on ? p.filter(x => x !== a.name) : [...p, a.name])}>
                         <View style={[s.addonCheck, on ? { backgroundColor: D.pink, borderColor: D.pink } : { borderColor: D.border }]}>
                           {on && <Text style={{ color: BASE.white, fontSize: 10, fontWeight: '900' }}>✓</Text>}
@@ -679,7 +703,7 @@ export default function BookingScreen() {
               const on = date === d;
               return (
                 <TouchableOpacity key={d}
-                  style={[s.dateChip, on && { borderColor: D.pink, backgroundColor: D.cardOn }]}
+                  style={[s.dateChip, { backgroundColor: D.bgCard, borderColor: D.bgElevated }, on && { borderColor: D.pink, backgroundColor: D.cardOn }]}
                   onPress={() => { setDate(d); setTime(''); }}>
                   <Text style={[s.dateWd, { color: on ? D.pink : BASE.textMuted }]}>{wd}</Text>
                   <Text style={[s.dateDay, { color: on ? D.pink : BASE.textPrimary }]}>{day}</Text>
@@ -688,7 +712,7 @@ export default function BookingScreen() {
             })}
           </ScrollView>
           {!!date && (
-            <View style={[s.selectedDate, { borderColor: D.border }]}>
+            <View style={[s.selectedDate, { backgroundColor: D.bgCard, borderColor: D.border }]}>
               <Text style={{ color: D.pink, fontWeight: '700', fontSize: 14 }}>📅 {fmtLong(date)}</Text>
             </View>
           )}
@@ -698,7 +722,7 @@ export default function BookingScreen() {
               <View style={s.timeGrid}>
                 {displayTimes.map(t => (
                   <TouchableOpacity key={t}
-                    style={[s.timeChip, { borderColor: time === t ? D.pink : D.border, backgroundColor: time === t ? D.pink : BASE.bgCard }]}
+                    style={[s.timeChip, { borderColor: time === t ? D.pink : D.border, backgroundColor: time === t ? D.pink : D.bgCard }]}
                     onPress={() => setTime(t)}>
                     <Text style={[s.timeTxt, { color: time === t ? BASE.white : BASE.textSec, fontWeight: time === t ? '800' : '500' }]}>{t}</Text>
                   </TouchableOpacity>
@@ -714,16 +738,16 @@ export default function BookingScreen() {
           <Text style={s.stepTitle}>Your info & payment</Text>
           <Text style={[s.stepSub, { color: BASE.textSec }]}>Your information is used only for this booking.</Text>
           <View style={{ flexDirection: 'row', gap: 10 }}>
-            <TextInput style={[s.input, { flex: 1 }]} value={firstName} onChangeText={setFirstName}
+            <TextInput style={[s.input, { flex: 1, backgroundColor: D.bgCard, borderColor: D.bgElevated }]} value={firstName} onChangeText={setFirstName}
               placeholder="First Name *" placeholderTextColor={BASE.textMuted} />
-            <TextInput style={[s.input, { flex: 1 }]} value={lastName} onChangeText={setLastName}
+            <TextInput style={[s.input, { flex: 1, backgroundColor: D.bgCard, borderColor: D.bgElevated }]} value={lastName} onChangeText={setLastName}
               placeholder="Last Name" placeholderTextColor={BASE.textMuted} />
           </View>
-          <TextInput style={s.input} value={email} onChangeText={setEmail}
+          <TextInput style={[s.input, { backgroundColor: D.bgCard, borderColor: D.bgElevated }]} value={email} onChangeText={setEmail}
             placeholder="Email *" placeholderTextColor={BASE.textMuted} keyboardType="email-address" autoCapitalize="none" />
-          <TextInput style={s.input} value={phone} onChangeText={setPhone}
+          <TextInput style={[s.input, { backgroundColor: D.bgCard, borderColor: D.bgElevated }]} value={phone} onChangeText={setPhone}
             placeholder="Phone (optional)" placeholderTextColor={BASE.textMuted} keyboardType="phone-pad" />
-          <TextInput style={[s.input, { height: 76, textAlignVertical: 'top' }]} value={note} onChangeText={setNote}
+          <TextInput style={[s.input, { height: 76, textAlignVertical: 'top', backgroundColor: D.bgCard, borderColor: D.bgElevated }]} value={note} onChangeText={setNote}
             placeholder="Note to stylist (optional)…" placeholderTextColor={BASE.textMuted} multiline />
 
           {intakeQuestions.length > 0 && (
@@ -754,7 +778,7 @@ export default function BookingScreen() {
           <Text style={s.sectionTitle}>Payment Method</Text>
           {PAYMENT_OPTS.map(p => (
             <TouchableOpacity key={p.id}
-              style={[s.card, payMethod === p.id && { borderColor: D.pink, backgroundColor: D.cardOn }]}
+              style={[s.card, { backgroundColor: D.bgCard, borderColor: D.bgElevated }, payMethod === p.id && { borderColor: D.pink, backgroundColor: D.cardOn }]}
               onPress={() => setPayMethod(p.id)}>
               <Text style={{ fontSize: 22 }}>{p.icon}</Text>
               <View style={{ flex: 1 }}>
@@ -768,7 +792,7 @@ export default function BookingScreen() {
           <View style={[s.promoBox, { borderColor: D.borderMid }]}>
             <Text style={s.sectionTitle}>🏷️ Promo Code</Text>
             <View style={{ flexDirection: 'row', gap: 10 }}>
-              <TextInput style={[s.input, { flex: 1, marginBottom: 0 }]}
+              <TextInput style={[s.input, { flex: 1, marginBottom: 0, backgroundColor: D.bgCard, borderColor: D.bgElevated }]}
                 value={promoCode} onChangeText={setPromoCode}
                 placeholder="Enter promo code" placeholderTextColor={BASE.textMuted}
                 autoCapitalize="characters" maxLength={30} />
@@ -785,7 +809,7 @@ export default function BookingScreen() {
         <View>
           <Text style={s.stepTitle}>Review & Confirm</Text>
           <Text style={[s.stepSub, { color: BASE.textSec }]}>Double-check your details before confirming.</Text>
-          <View style={[s.summaryCard, { borderColor: D.borderMid }]}>
+          <View style={[s.summaryCard, { backgroundColor: D.bgCard, borderColor: D.borderMid }]}>
             <Text style={[s.summaryTitle, { color: BASE.textPrimary }]}>{business?.businessName || business?.business_name || 'Appointment'}</Text>
             {isHair && !!texture && <SumRow k="Hair Texture" v={TEXTURES.find(t => t.id === texture)?.label || texture} D={D} />}
             {isNail && !!nailLength && <SumRow k="Nail Length" v={nailLength} D={D} />}
@@ -839,7 +863,7 @@ export default function BookingScreen() {
 
   // ── Render ────────────────────────────────────────────────────────────
   return (
-    <KeyboardAvoidingView style={[s.fill, { backgroundColor: BASE.bgBase }]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView style={[s.fill, { backgroundColor: D.bgBase }]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <Animated.View style={[s.fill, { transform: [{ translateY: slideY }] }]}>
         <View style={[s.fill, { paddingTop: insets.top }]}>
 
@@ -882,7 +906,7 @@ export default function BookingScreen() {
           {content !== 'review' && (
             <View style={[s.navBar, { borderTopColor: D.border, paddingBottom: insets.bottom + 8 }]}>
               <TouchableOpacity
-                style={[s.nextBtn, { backgroundColor: canAdvance() ? D.pink : BASE.bgElevated, shadowColor: D.pink }, !canAdvance() && { shadowOpacity: 0 }]}
+                style={[s.nextBtn, { backgroundColor: canAdvance() ? D.pink : D.bgElevated, shadowColor: D.pink }, !canAdvance() && { shadowOpacity: 0 }]}
                 onPress={() => canAdvance() && setStep(n => n + 1)}
                 disabled={!canAdvance()}>
                 <Text style={[s.nextTxt, !canAdvance() && { color: BASE.textMuted }]}>
@@ -911,17 +935,17 @@ const s = StyleSheet.create({
   stepTitle:    { fontSize: 22, fontWeight: '900', color: BASE.textPrimary, fontFamily: 'Georgia', marginBottom: 6 },
   stepSub:      { fontSize: 13, lineHeight: 18, marginBottom: 18 },
   sectionTitle: { fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 10, color: BASE.textSec },
-  card:         { backgroundColor: BASE.bgCard, borderRadius: 14, padding: 16, marginBottom: 10, borderWidth: 1, borderColor: BASE.bgElevated, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  card:         { backgroundColor: '#1A1014', borderRadius: 14, padding: 16, marginBottom: 10, borderWidth: 1, borderColor: '#221520', flexDirection: 'row', alignItems: 'center', gap: 12 },
   cardTitle:    { fontSize: 15, fontWeight: '700', color: BASE.textPrimary },
   cardSub:      { fontSize: 12, lineHeight: 16, marginTop: 2 },
   texIcon:      { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
   check:        { width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
-  serviceCard:  { backgroundColor: BASE.bgCard, borderRadius: 14, padding: 16, marginBottom: 10, borderWidth: 1, borderColor: BASE.bgElevated, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  serviceCard:  { backgroundColor: '#1A1014', borderRadius: 14, padding: 16, marginBottom: 10, borderWidth: 1, borderColor: '#221520', flexDirection: 'row', alignItems: 'center', gap: 8 },
   pill2:        { fontSize: 11, fontWeight: '600', borderWidth: 1, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
   price:        { fontSize: 18, fontWeight: '900', color: BASE.textPrimary },
-  emptyBox:     { padding: 40, backgroundColor: BASE.bgCard, borderRadius: 14, borderWidth: 1, alignItems: 'center' },
+  emptyBox:     { padding: 40, backgroundColor: '#1A1014', borderRadius: 14, borderWidth: 1, alignItems: 'center' },
   addonsGrid:   { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  addonCard:    { backgroundColor: BASE.bgCard, borderRadius: 12, padding: 12, borderWidth: 1.5, borderColor: BASE.bgElevated, flexDirection: 'row', alignItems: 'center', gap: 8, minWidth: '45%', flex: 1 },
+  addonCard:    { backgroundColor: '#1A1014', borderRadius: 12, padding: 12, borderWidth: 1.5, borderColor: '#221520', flexDirection: 'row', alignItems: 'center', gap: 8, minWidth: '45%', flex: 1 },
   addonCheck:   { width: 18, height: 18, borderRadius: 5, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
   addonName:    { fontSize: 13, fontWeight: '600', color: BASE.textPrimary },
   addonPrice:   { fontSize: 12, fontWeight: '700' },
@@ -929,20 +953,20 @@ const s = StyleSheet.create({
   pillRow:      { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   colourGrid:   { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   mixNotice:    { marginTop: 12, borderRadius: 10, borderWidth: 1, padding: 12 },
-  dateChip:     { width: 56, paddingVertical: 10, borderRadius: 14, backgroundColor: BASE.bgCard, borderWidth: 1, borderColor: BASE.bgElevated, alignItems: 'center', gap: 3 },
+  dateChip:     { width: 56, paddingVertical: 10, borderRadius: 14, backgroundColor: '#1A1014', borderWidth: 1, borderColor: '#221520', alignItems: 'center', gap: 3 },
   dateWd:       { fontSize: 10, fontWeight: '700', textTransform: 'uppercase' },
   dateDay:      { fontSize: 18, fontWeight: '900' },
-  selectedDate: { marginTop: 12, padding: 14, backgroundColor: BASE.bgCard, borderRadius: 12, borderWidth: 1, alignItems: 'center' },
+  selectedDate: { marginTop: 12, padding: 14, backgroundColor: '#1A1014', borderRadius: 12, borderWidth: 1, alignItems: 'center' },
   timeGrid:     { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   timeChip:     { paddingHorizontal: 14, paddingVertical: 11, borderRadius: 10, borderWidth: 1, minWidth: 90, alignItems: 'center' },
   timeTxt:      { fontSize: 13 },
-  input:        { backgroundColor: BASE.bgCard, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 13, fontSize: 14, color: BASE.textPrimary, borderWidth: 1, borderColor: BASE.bgElevated, marginBottom: 12 },
+  input:        { backgroundColor: '#1A1014', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 13, fontSize: 14, color: BASE.textPrimary, borderWidth: 1, borderColor: '#221520', marginBottom: 12 },
   intakeBox:    { borderRadius: 16, borderWidth: 1, padding: 16, marginBottom: 12 },
   loyaltyBox:   { borderRadius: 12, borderWidth: 1, borderColor: 'rgba(45,184,122,0.3)', padding: 14, backgroundColor: BASE.promoGreen },
   promoBox:     { borderRadius: 14, borderWidth: 1, borderStyle: 'dashed', padding: 14, marginTop: 4, marginBottom: 8 },
   promoBtn:     { paddingHorizontal: 18, paddingVertical: 13, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   policyBox:    { borderRadius: 14, borderWidth: 1, padding: 16, marginBottom: 16 },
-  summaryCard:  { backgroundColor: BASE.bgCard, borderRadius: 16, padding: 20, borderWidth: 1, marginBottom: 14 },
+  summaryCard:  { backgroundColor: '#1A1014', borderRadius: 16, padding: 20, borderWidth: 1, marginBottom: 14 },
   summaryTitle: { fontSize: 18, fontWeight: '900', fontFamily: 'Georgia', marginBottom: 14 },
   totalRow:     { flexDirection: 'row', justifyContent: 'space-between', paddingTop: 12, marginTop: 4, borderTopWidth: 1 },
   totalAmt:     { fontSize: 20, fontWeight: '900' },
@@ -952,7 +976,7 @@ const s = StyleSheet.create({
   navBar:       { paddingHorizontal: 16, paddingTop: 12, borderTopWidth: 1 },
   nextBtn:      { paddingVertical: 16, borderRadius: 999, alignItems: 'center', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 10, elevation: 4 },
   nextTxt:      { color: BASE.white, fontWeight: '800', fontSize: 15 },
-  confCard:     { backgroundColor: BASE.bgCard, borderRadius: 24, padding: 28, borderWidth: 1, alignItems: 'center', width: '100%' },
+  confCard:     { backgroundColor: '#1A1014', borderRadius: 24, padding: 28, borderWidth: 1, alignItems: 'center', width: '100%' },
   confTitle:    { fontSize: 26, fontWeight: '900', fontFamily: 'Georgia', marginBottom: 8, textAlign: 'center' },
   confSub:      { fontSize: 14, lineHeight: 20, textAlign: 'center', marginBottom: 20 },
   confRef:      { fontSize: 12, borderWidth: 1, borderRadius: 999, paddingHorizontal: 16, paddingVertical: 6, marginBottom: 16, fontWeight: '600' },
