@@ -19,8 +19,13 @@
  *   await bio.clearCredentials();
  */
 import { useState, useEffect, useCallback } from 'react';
-import * as LocalAuthentication from 'expo-local-authentication';
-import * as SecureStore from 'expo-secure-store';
+
+// Lazy-require so the hook degrades gracefully if native module isn't linked yet
+// (e.g. first build before pod install picks up expo-local-authentication)
+let _LocalAuth: typeof import('expo-local-authentication') | null = null;
+let _SecureStore: typeof import('expo-secure-store') | null = null;
+try { _LocalAuth  = require('expo-local-authentication'); } catch { /* not linked yet */ }
+try { _SecureStore = require('expo-secure-store'); } catch { /* not linked yet */ }
 
 const CREDS_KEY = 'pinkbook_biometric_credentials';
 
@@ -52,18 +57,19 @@ export function useBiometricAuth(): UseBiometricAuthResult {
   useEffect(() => {
     let mounted = true;
     (async () => {
-      const hasHardware    = await LocalAuthentication.hasHardwareAsync();
-      const isEnrolled     = await LocalAuthentication.isEnrolledAsync();
-      const supported      = await LocalAuthentication.supportedAuthenticationTypesAsync();
+      if (!_LocalAuth || !_SecureStore) return; // native module not linked yet
+      const hasHardware    = await _LocalAuth.hasHardwareAsync();
+      const isEnrolled     = await _LocalAuth.isEnrolledAsync();
+      const supported      = await _LocalAuth.supportedAuthenticationTypesAsync();
 
       const isAvailable = hasHardware && isEnrolled;
       if (!mounted) return;
       setAvailable(isAvailable);
 
       // Determine label
-      if (supported.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION)) {
+      if (supported.includes(_LocalAuth.AuthenticationType.FACIAL_RECOGNITION)) {
         setBiometricLabel('Face ID');
-      } else if (supported.includes(LocalAuthentication.AuthenticationType.FINGERPRINT)) {
+      } else if (supported.includes(_LocalAuth.AuthenticationType.FINGERPRINT)) {
         setBiometricLabel('Touch ID');
       } else {
         setBiometricLabel('Biometrics');
@@ -71,7 +77,7 @@ export function useBiometricAuth(): UseBiometricAuthResult {
 
       // Check if creds are already stored
       if (isAvailable) {
-        const stored = await SecureStore.getItemAsync(CREDS_KEY).catch(() => null);
+        const stored = await _SecureStore.getItemAsync(CREDS_KEY).catch(() => null);
         if (mounted) setHasSavedCredentials(!!stored);
       }
     })();
@@ -79,12 +85,14 @@ export function useBiometricAuth(): UseBiometricAuthResult {
   }, []);
 
   const saveCredentials = useCallback(async (email: string, password: string) => {
-    await SecureStore.setItemAsync(CREDS_KEY, JSON.stringify({ email, password }));
+    if (!_SecureStore) return;
+    await _SecureStore.setItemAsync(CREDS_KEY, JSON.stringify({ email, password }));
     setHasSavedCredentials(true);
   }, []);
 
   const authenticateAndGetCredentials = useCallback(async (): Promise<BiometricCredentials | null> => {
-    const result = await LocalAuthentication.authenticateAsync({
+    if (!_LocalAuth || !_SecureStore) return null;
+    const result = await _LocalAuth.authenticateAsync({
       promptMessage: 'Sign in to PinkBook',
       fallbackLabel: 'Use password',
       disableDeviceFallback: false,
@@ -92,7 +100,7 @@ export function useBiometricAuth(): UseBiometricAuthResult {
     });
     if (!result.success) return null;
 
-    const stored = await SecureStore.getItemAsync(CREDS_KEY).catch(() => null);
+    const stored = await _SecureStore.getItemAsync(CREDS_KEY).catch(() => null);
     if (!stored) return null;
     try {
       return JSON.parse(stored) as BiometricCredentials;
@@ -102,7 +110,8 @@ export function useBiometricAuth(): UseBiometricAuthResult {
   }, []);
 
   const clearCredentials = useCallback(async () => {
-    await SecureStore.deleteItemAsync(CREDS_KEY).catch(() => {});
+    if (!_SecureStore) return;
+    await _SecureStore.deleteItemAsync(CREDS_KEY).catch(() => {});
     setHasSavedCredentials(false);
   }, []);
 
