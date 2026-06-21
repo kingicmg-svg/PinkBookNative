@@ -2,8 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Share, Linking } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
 import { useAuth } from '../hooks/useAuth';
-import { OwnerApi, SettingsApi } from '../services/ApiService';
+import { OwnerApi, SettingsApi, API_URL } from '../services/ApiService';
 import Colors from '../../constants/Colors';
 
 const TIER_META: Record<string, { label: string; color: string; emoji: string }> = {
@@ -76,6 +77,23 @@ export default function SettingsScreen() {
   const name = settings?.studioName || user?.name || 'My Studio';
   const email = user?.email || '';
   const city  = settings?.city || '';
+
+  const handleConnectOnboarding = async () => {
+    if (!token) return;
+    try {
+      Alert.alert('Setting up Stripe', 'Opening Stripe Connect onboarding...');
+      const appUrl = API_URL.replace(/\/$/, '');
+      const returnUrl = `${appUrl}/pinkbook-settings.html`;
+      const accountLink = await OwnerApi.createAccountLink(token, { returnUrl });
+      if (accountLink && accountLink.url) {
+        await WebBrowser.openBrowserAsync(accountLink.url);
+      } else {
+        Alert.alert('Error', 'Could not start onboarding.');
+      }
+    } catch (err) {
+      Alert.alert('Error', (err instanceof Error) ? err.message : 'Failed to setup Stripe.');
+    }
+  };
 
   return (
     <View style={[s.container, { paddingTop: insets.top }]}>
@@ -153,6 +171,7 @@ export default function SettingsScreen() {
         <Text style={s.section}>Plans & Billing</Text>
         <View style={s.group}>
           <Row icon="💜" label="Plans & Pricing"  sub={`You're on ${tierMeta.label}`}     onPress={() => router.push('/owner/upgrade')} />
+          <Row icon="💳" label="Stripe Connect"   sub="Accept client payments"           onPress={handleConnectOnboarding} />
         </View>
 
         {/* Support */}

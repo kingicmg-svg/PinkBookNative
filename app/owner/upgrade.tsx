@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Linking, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
 import { useAuth } from '../hooks/useAuth';
-import { AuthApi } from '../services/ApiService';
+import { OwnerApi, API_URL } from '../services/ApiService';
 import Colors from '../../constants/Colors';
 
 const TIER_ORDER = ['starter', 'pro', 'salon', 'studio_elite'];
@@ -37,10 +38,11 @@ export default function UpgradeScreen() {
   const { token } = useAuth();
   const [selected, setSelected] = useState<string | null>(null);
   const [currentTier, setCurrentTier] = useState<string>('starter');
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (!token) return;
-    AuthApi.me(token)
+    OwnerApi.me(token)
       .then(res => setCurrentTier(res.user?.subscription_tier || res.user?.tier || 'starter'))
       .catch(() => {});
   }, [token]);
@@ -54,15 +56,144 @@ export default function UpgradeScreen() {
     return 'Current Plan';
   };
 
-  const handlePlanAction = (planId: string) => {
-    setSelected(planId);
-    const label = getPlanLabel(planId);
-    const planName = PLANS.find(p => p.id === planId)?.name;
-    Alert.alert(label, `To ${label.toLowerCase()}, please visit pinkbook.app from a browser to complete your billing changes.`, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'OK' },
-    ]);
+  const handlePlanAction = async (planId: string) => {
+    if (!token) {
+      Alert.alert('Sign in required', 'Please sign in to upgrade your plan.');
+      return;
+    }
+
+    const currentRank = TIER_ORDER.indexOf(currentTier);
+    const planRank = TIER_ORDER.indexOf(planId);
+
+    // Downgrade: open Stripe Customer Portal
+    if (planRank < currentRank) {
+      try {
+        setLoading(true);
+        const appUrl = API_URL.replace(/\/$/, '');
+        const returnUrl = `${appUrl}/pinkbook-settings.html`;
+        const portal = await OwnerApi.createBillingPortal(token, { returnUrl });
+        if (portal && portal.url) {
+          await WebBrowser.openBrowserAsync(portal.url);
+        } else {
+          Alert.alert('Error', 'Could not open billing portal.');
+        }
+      } catch (err) {
+        Alert.alert('Error', (err instanceof Error) ? err.message : 'Failed to open billing portal.');
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
+    // Upgrade: open Stripe Checkout
+    if (planRank > currentRank) {
+      try {
+        setLoading(true);
+        setSelected(planId);
+
+        const appUrl = API_URL.replace(/\/$/, '');
+        const successUrl = `${appUrl}/pinkbook-upgrade.html?upgrade_success=1&tier=${encodeURIComponent(planId)}`;
+        const cancelUrl = `${appUrl}/pinkbook-upgrade.html?upgrade_cancel=1`;
+
+        const checkout = await OwnerApi.createSubscriptionCheckout(token, {
+          tier: planId,
+          interval: 'month',
+          currency: 'cad',
+          successUrl,
+          cancelUrl,
+        });
+
+        if (checkout && checkout.url) {
+          const result = await WebBrowser.openBrowserAsync(checkout.url);
+
+          if (result.type === 'success') {
+            // Poll for subscription status
+            let activated = false;
+            for (let i = 0; i < 6; i++) {
+              await new Promise(r => setTimeout(r, 2000));
+              try {
+                const status = await OwnerApi.getSubscriptionStatus(token);
+                if (status && status.active && status.tier === planId) {
+                  activated = true;
+                  break;
+                }
+              } catch (e) {
+                // continue polling
+              }
+            }
+
+            if (activated) {
+              Alert.alert('Success!', 'Your plan is now active.');
+              setCurrentTier(planId);
+            } else {
+              Alert.alert('Pending', 'Your payment is processing. Please check back in a moment.');
+            }
+          }
+        } else {
+          Alert.alert('Error', 'Could not start checkout.');
+        }
+      } catch (err) {
+        Alert.alert('Error', (err instanceof Error) ? err.message : 'Failed to upgrade.');
+      } finally {
+        setLoading(false);
+        setSelected(null);
+      }
+    }
   };
+
+  return (
+    <View style={[s.container, { paddingTop: insets.top }]}>
+      <View style={s.topBar}>
+        <TouchableOpacity onPress={() => router.back()} disabled={loading}><Text style={s.back}>← Back</Text></TouchableOpacity>
+        <Text style={s.title}>Plans & Pricing</Text>
+        <View style={{ width: 60 }} />
+      </View>
+      <ScrollView contentContainerStyle={s.scroll}>
+        <View style={s.hero}>
+          <Text style={s.heroEye}>CHOOSE YOUR PLAN</Text>
+          <Text style={s.heroTitle}>Built for beauty professionals</Text>
+          <Text style={s.heroSub}>Starter is free forever. Upgrade anytime to unlock more power.</Text>
+        </View>
+        {PLANS.map(plan => (
+          <View key={plan.id} style={[s.card, plan.dark && s.cardDark, plan.id === 'pro' && s.cardFeatured]}>
+            {plan.badge && <View style={[s.badge, plan.dark && { backgroundColor: Colors.rose }]}><Text style={s.badgeTxt}>{plan.badge}</Text></View>}
+            <View style={s.planHeader}>
+              <Text style={s.planEmoji}>{plan.emoji}</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={[s.planName, plan.dark && { color: '#FDE8EF' }]}>{plan.name}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4 }}>
+                  <Text style={[s.price, { color: plan.dark ? '#F2A7BB' : plan.color }]}>{plan.price}</Text>
+                  <Text style={[s.priceSub, plan.dark && { color: 'rgba(255,255,255,0.5)' }]}>{plan.sub}</Text>
+                </View>
+              </View>
+            </View>
+            {plan.features.map((f, i) => (
+              <View key={i} style={s.featureRow}>
+                <Text style={[s.featureCheck, plan.dark && { color: '#F2A7BB' }]}>✓</Text>
+                <Text style={[s.featureTxt, plan.dark && { color: 'rgba(255,255,255,0.75)' }]}>{f}</Text>
+              </View>
+            ))}
+            {plan.id !== 'starter' && plan.id !== currentTier && (
+              <TouchableOpacity
+                style={[s.cta, { backgroundColor: plan.dark ? Colors.rose : plan.color }, plan.id === 'pro' && s.ctaGlow]}
+                onPress={() => handlePlanAction(plan.id)}
+                disabled={loading}
+              >
+                <Text style={s.ctaTxt}>{loading && selected === plan.id ? '⏳ Opening...' : getPlanLabel(plan.id)}</Text>
+              </TouchableOpacity>
+            )}
+            {plan.id === currentTier && (
+              <View style={[s.cta, { backgroundColor: 'rgba(0,0,0,0.08)' }]}>
+                <Text style={[s.ctaTxt, { color: plan.dark ? 'rgba(255,255,255,0.5)' : Colors.soft }]}>✓ Current Plan</Text>
+              </View>
+            )}
+          </View>
+        ))}
+        <View style={{ height: 40 }} />
+      </ScrollView>
+    </View>
+  );
+}
 
   return (
     <View style={[s.container, { paddingTop: insets.top }]}>

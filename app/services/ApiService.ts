@@ -142,6 +142,33 @@ export const OwnerApi = {
 
   brandGalleryPatch: (token: string, id: string, body: { caption?: string; isBefore?: boolean; pairId?: string | null }) =>
     request<any>(`/api/v1/brand-studio/gallery/${id}`, { method: 'PATCH', body: JSON.stringify(body) }, token),
+
+  // ── Subscription billing (Pro/Salon/Studio Elite) ──
+  getSubscriptionStatus: (token: string) =>
+    request<{ tier?: string; status?: string; active?: boolean; hasBilling?: boolean; cancelAtPeriodEnd?: boolean; currentPeriodEnd?: string }>
+    ('/api/payments/subscription/status', {}, token),
+
+  createSubscriptionCheckout: (token: string, body: { tier: string; interval: string; currency: string; successUrl: string; cancelUrl: string }) =>
+    request<{ url: string; id: string }>('/api/payments/subscription/checkout', { method: 'POST', body: JSON.stringify(body) }, token),
+
+  createBillingPortal: (token: string, body: { returnUrl: string }) =>
+    request<{ url: string }>('/api/payments/subscription/portal', { method: 'POST', body: JSON.stringify(body) }, token),
+
+  // ── Stripe Connect onboarding (pro payout setup) ──
+  createAccountLink: (token: string, body: { returnUrl: string }) =>
+    request<{ url: string; accountId: string }>('/api/payments/connect/account-link', { method: 'POST', body: JSON.stringify(body) }, token),
+};
+
+// ── Payments (booking deposits, native PaymentSheet) ─────────────────────
+export const PinbookPaymentsApi = {
+  getPaymentConfig: () =>
+    request<{ enabled: boolean; publishableKey: string; paypal: any }>('/api/payments/config'),
+
+  createPaymentIntent: (body: { amountCents: number; currency: string; description?: string; metadata?: any }) =>
+    request<{ id: string; client_secret: string; amount: number; currency: string }>('/api/payments/payment-intent', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
 };
 
 // ── Client auth ────────────────────────────────────────────────────────────
