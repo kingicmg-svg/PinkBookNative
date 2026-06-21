@@ -1,0 +1,678 @@
+'use strict';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Clipboard,
+  FlatList,
+  Image,
+  Modal,
+  RefreshControl,
+  ScrollView,
+  Share,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import { useAuth } from '../hooks/useAuth';
+import { OwnerApi, SettingsApi, API_URL } from '../services/ApiService';
+import Colors from '../../constants/Colors';
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function isoDate(d: Date) {
+  return d.toISOString().slice(0, 10);
+}
+function today() { return isoDate(new Date()); }
+function getBookingTime(b: any) {
+  return b.appointmentTime || b.appointment_time || b.time || b.date || '';
+}
+function formatTime(iso: string) {
+  try {
+    return new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+  } catch { return ''; }
+}
+function formatShortDate(iso: string) {
+  try {
+    return new Date(iso).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  } catch { return ''; }
+}
+function todayLabel() {
+  return new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+}
+function greeting(name: string) {
+  const h = new Date().getHours();
+  const g = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
+  return name ? `${g}, ${name.split(' ')[0]} 👋` : `${g} 👋`;
+}
+function buildBookingUrl(ownerId: string, slug: string, name: string) {
+  if (slug) return `https://pinkbook.app/book/${slug}`;
+  const base = 'https://pinkbook.app/pinkbook-booking.html';
+  const handle = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'stylist';
+  return `${base}?owner=${ownerId}&name=${handle}&display=${encodeURIComponent(name)}`;
+}
+function uid() { return Math.random().toString(36).slice(2, 10); }
+
+const BADGE_COLORS = ['#C85D7A', '#7C3AED', '#1A9E4A', '#F59E0B', '#3B82F6', '#EF4444', '#EC4899', '#14B8A6', '#1C1C1E', '#F2A7BB'];
+const BADGE_EMOJIS = ['✨', '💅', '💜', '🔥', '⭐', '🌸', '👑', '🎉', '🙌', '💎', '🌟', '🏅', '✅', '🎀', '🦋'];
+
+// ─── Sub-components ──────────────────────────────────────────────────────────
+
+function SectionHeader({ title, action, onAction }: { title: string; action?: string; onAction?: () => void }) {
+  return (
+    <View style={s.sectionHeader}>
+      <Text style={s.sectionTitle}>{title}</Text>
+      {!!action && <TouchableOpacity onPress={onAction}><Text style={s.sectionAction}>{action}</Text></TouchableOpacity>}
+    </View>
+  );
+}
+
+function BookingRow({ booking, showDate }: { booking: any; showDate?: boolean }) {
+  const t = getBookingTime(booking);
+  const client = booking.clientName || booking.client_name || booking.contactName || 'Client';
+  const service = booking.serviceName || booking.service_name || booking.service || '';
+  const st = booking.status || 'pending';
+  const statusColor = st === 'confirmed' ? Colors.success : st === 'cancelled' ? Colors.error : Colors.gold;
+  return (
+    <View style={s.bookingRow}>
+      <View style={[s.bookingDot, { backgroundColor: statusColor }]} />
+      <View style={{ flex: 1 }}>
+        <Text style={s.bookingClient}>{client}</Text>
+        <Text style={s.bookingMeta}>{service}{showDate && t ? ' · ' + formatShortDate(t) : t ? ' · ' + formatTime(t) : ''}</Text>
+      </View>
+      <View style={[s.statusPill, { backgroundColor: statusColor + '20' }]}>
+        <Text style={[s.statusPillTxt, { color: statusColor }]}>{st}</Text>
+      </View>
+    </View>
+  );
+}
+
+// ─── Main Screen ─────────────────────────────────────────────────────────────
+
+export default function DashboardScreen() {
+  const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const { token } = useAuth();
+
+  // Data state
+  const [user, setUser]           = useState<any>(null);
+  const [settings, setSettings]   = useState<any>(null);
+  const [bookings, setBookings]   = useState<any[]>([]);
+  const [overview, setOverview]   = useState<any>(null);
+  const [byService, setByService] = useState<any[]>([]);
+  const [badges, setBadges]       = useState<any[]>([]);
+  const [brandProfile, setBrandProfile] = useState<any>(null);
+  const [qrDataUrl, setQrDataUrl] = useState<string>('');
+  const [bookingUrl, setBookingUrl] = useState<string>('');
+  const [loading, setLoading]     = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [notifCount, setNotifCount] = useState(0);
+
+  // Badge creator state
+  const [badgeName, setBadgeName]   = useState('');
+  const [badgeColor, setBadgeColor] = useState(BADGE_COLORS[0]);
+  const [badgeTextColor, setBadgeTextColor] = useState('#FFFFFF');
+  const [badgeEmoji, setBadgeEmoji] = useState('✨');
+  const [badgeAdding, setBadgeAdding] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+
+  // Widget embed modal
+  const [showWidget, setShowWidget] = useState(false);
+
+  const load = useCallback(async (isRefresh = false) => {
+    if (!token) return;
+    if (!isRefresh) setLoading(true);
+    try {
+      const [meRes, stRes, bookRes, brandRes] = await Promise.allSettled([
+        OwnerApi.me(token),
+        SettingsApi.get(token),
+        OwnerApi.bookings(token),
+        OwnerApi.brandProfile(token),
+      ]);
+      const u = meRes.status === 'fulfilled' ? meRes.value.user : null;
+      const st = stRes.status === 'fulfilled' ? (stRes.value as any)?.settings : null;
+      const bk = bookRes.status === 'fulfilled' ? bookRes.value.bookings : [];
+      const bp = brandRes.status === 'fulfilled' ? brandRes.value.data : null;
+
+      setUser(u);
+      setSettings(st);
+      setBookings(bk || []);
+      setBrandProfile(bp);
+
+      const ownerId = u?.id || u?.owner_id || '';
+      const slug = bp?.booking_slug || st?.bookingSlug || st?.booking_slug || '';
+      const displayName = st?.studioName || u?.name || '';
+      const url = buildBookingUrl(ownerId, slug, displayName);
+      setBookingUrl(url);
+
+      // Load analytics, badges, QR in parallel
+      const [analyticsRes, serviceRes, badgesRes, qrRes] = await Promise.allSettled([
+        OwnerApi.analyticsOverview(token),
+        OwnerApi.analyticsByService(token),
+        OwnerApi.listBadges(token),
+        OwnerApi.getQrCode(url),
+      ]);
+      if (analyticsRes.status === 'fulfilled') setOverview(analyticsRes.value);
+      if (serviceRes.status === 'fulfilled') setByService(serviceRes.value.services || []);
+      if (badgesRes.status === 'fulfilled') setBadges(badgesRes.value.badges || []);
+      if (qrRes.status === 'fulfilled') setQrDataUrl(qrRes.value.qr || '');
+    } catch {}
+    finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [token]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const onRefresh = () => { setRefreshing(true); load(true); };
+
+  // ── Derived data ──
+  const todayISO = today();
+  const todayBookings = bookings
+    .filter(b => { try { return isoDate(new Date(getBookingTime(b))) === todayISO; } catch { return false; } })
+    .sort((a, b) => getBookingTime(a).localeCompare(getBookingTime(b)));
+
+  const weekEnd = new Date(); weekEnd.setDate(weekEnd.getDate() + 7);
+  const upcomingBookings = bookings
+    .filter(b => {
+      try {
+        const d = new Date(getBookingTime(b));
+        return d > new Date() && d <= weekEnd && isoDate(d) !== todayISO;
+      } catch { return false; }
+    })
+    .sort((a, b) => getBookingTime(a).localeCompare(getBookingTime(b)))
+    .slice(0, 8);
+
+  const tier = user?.subscription_tier || user?.tier || settings?.subscriptionTier || settings?.subscription_tier || 'starter';
+  const TIER_META: Record<string, { label: string; color: string; emoji: string }> = {
+    starter: { label: 'Starter', color: Colors.soft, emoji: '🌸' },
+    pro: { label: 'Pro', color: Colors.rose, emoji: '💜' },
+    salon: { label: 'Salon', color: '#7C3AED', emoji: '👑' },
+    studio_elite: { label: 'Studio Elite', color: Colors.charcoal, emoji: '⭐' },
+    owner: { label: 'Owner', color: Colors.gold, emoji: '🔑' },
+  };
+  const tierMeta = TIER_META[tier] || TIER_META.starter;
+  const displayName = settings?.studioName || user?.name || '';
+
+  // Smart Insights
+  const revenueMonth = overview?.revenue?.month ?? 0;
+  const bookingsMonth = overview?.bookings?.month ?? 0;
+  const topService = byService.length > 0 ? byService.sort((a, b) => (b.count || 0) - (a.count || 0))[0] : null;
+  const busiestDay = (() => {
+    const days: Record<string, number> = {};
+    bookings.forEach(b => {
+      try {
+        const d = new Date(getBookingTime(b));
+        const day = d.toLocaleDateString('en-US', { weekday: 'long' });
+        days[day] = (days[day] || 0) + 1;
+      } catch {}
+    });
+    const sorted = Object.entries(days).sort((a, b) => b[1] - a[1]);
+    return sorted[0]?.[0] || null;
+  })();
+
+  // ── Badge CRUD ──
+  const handleAddBadge = async () => {
+    if (!token || !badgeName.trim()) return;
+    setBadgeAdding(true);
+    try {
+      const res = await OwnerApi.addBadge(token, {
+        id: uid(),
+        name: badgeName.trim().slice(0, 30),
+        color: badgeColor,
+        textColor: badgeTextColor,
+        emoji: badgeEmoji,
+      });
+      setBadges(prev => [...prev, res.badge || { id: uid(), name: badgeName.trim(), color: badgeColor, textColor: badgeTextColor, emoji: badgeEmoji }]);
+      setBadgeName('');
+    } catch (e: any) {
+      Alert.alert('Error', e.message || 'Could not add badge');
+    } finally {
+      setBadgeAdding(false);
+    }
+  };
+
+  const handleDeleteBadge = (id: string) => {
+    Alert.alert('Remove Badge', 'Remove this status badge?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Remove', style: 'destructive', onPress: async () => {
+          try {
+            await OwnerApi.deleteBadge(token!, id);
+            setBadges(prev => prev.filter(b => b.id !== id));
+          } catch (e: any) {
+            Alert.alert('Error', e.message || 'Could not remove badge');
+          }
+        },
+      },
+    ]);
+  };
+
+  const copyBookingLink = async () => {
+    if (!bookingUrl) return;
+    try {
+      await Clipboard.setString(bookingUrl);
+      Alert.alert('Copied!', 'Booking link copied to clipboard.');
+    } catch {
+      await Share.share({ message: bookingUrl });
+    }
+  };
+
+  const copyInstagramCaption = async () => {
+    const caption = `Book your appointment with me!\n👇 Tap the link in my bio to book\n\n${bookingUrl}\n\n#beauty #bookinglink #pinkbook`;
+    try {
+      await Clipboard.setString(caption);
+      Alert.alert('Copied!', 'Instagram caption copied. Paste it in your bio or story.');
+    } catch {
+      await Share.share({ message: caption });
+    }
+  };
+
+  const widgetEmbedCode = `<!-- PinkBook Booking Widget -->
+<div style="text-align:center;margin:20px 0;">
+  <a href="${bookingUrl}" target="_blank" rel="noopener"
+    style="display:inline-block;background:linear-gradient(135deg,#C85D7A,#F2A7BB);
+    color:#fff;padding:14px 32px;border-radius:30px;text-decoration:none;
+    font-family:sans-serif;font-weight:600;font-size:16px;
+    box-shadow:0 4px 14px rgba(200,93,122,0.35);">
+    Book Now
+  </a>
+</div>`;
+
+  if (loading) {
+    return (
+      <View style={[s.center, { paddingTop: insets.top }]}>
+        <ActivityIndicator color={Colors.rose} size="large" />
+      </View>
+    );
+  }
+
+  return (
+    <View style={[s.container, { paddingTop: insets.top }]}>
+      {/* Top Bar */}
+      <View style={s.topBar}>
+        <View style={{ flex: 1 }}>
+          <Text style={s.greetingTxt}>{greeting(displayName)}</Text>
+          <Text style={s.dateTxt}>{todayLabel()}</Text>
+        </View>
+        <View style={[s.tierPill, { backgroundColor: tierMeta.color + '18', borderColor: tierMeta.color + '40' }]}>
+          <Text style={{ fontSize: 11 }}>{tierMeta.emoji}</Text>
+          <Text style={[s.tierPillTxt, { color: tierMeta.color }]}>{tierMeta.label}</Text>
+        </View>
+        <TouchableOpacity style={s.bellBtn} onPress={() => router.push('/owner/notifications')}>
+          <Ionicons name="notifications-outline" size={22} color={Colors.charcoal} />
+          {notifCount > 0 && (
+            <View style={s.bellBadge}><Text style={s.bellBadgeTxt}>{notifCount}</Text></View>
+          )}
+        </TouchableOpacity>
+      </View>
+
+      <ScrollView
+        contentContainerStyle={s.scroll}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.rose} />}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* ── TODAY'S SCHEDULE ── */}
+        <View style={s.card}>
+          <SectionHeader
+            title={`Today's Schedule (${todayBookings.length})`}
+            action="View Calendar →"
+            onAction={() => router.push('/(owner-tabs)/calendar')}
+          />
+          {todayBookings.length === 0 ? (
+            <View style={s.emptyBox}>
+              <Text style={s.emptyEmoji}>🌸</Text>
+              <Text style={s.emptyTxt}>No appointments today. Enjoy your day!</Text>
+            </View>
+          ) : (
+            todayBookings.slice(0, 5).map((b, i) => (
+              <BookingRow key={b.id || i} booking={b} />
+            ))
+          )}
+          {todayBookings.length > 5 && (
+            <TouchableOpacity onPress={() => router.push('/(owner-tabs)/calendar')}>
+              <Text style={s.moreLink}>+{todayBookings.length - 5} more — View Calendar →</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* ── QUICK ACTIONS ── */}
+        <View style={s.card}>
+          <Text style={s.cardTitle}>Quick Actions</Text>
+          <View style={s.quickGrid}>
+            {[
+              { icon: '📅', label: 'New Appointment', onPress: () => router.push('/(owner-tabs)/calendar') },
+              { icon: '👥', label: 'Add Client',       onPress: () => router.push('/(owner-tabs)/clients') },
+              { icon: '✂️', label: 'Edit Services',    onPress: () => router.push('/(owner-tabs)/services') },
+              { icon: '📋', label: 'Update Policies',  onPress: () => router.push('/owner/policies') },
+            ].map(a => (
+              <TouchableOpacity key={a.label} style={s.quickBtn} onPress={a.onPress}>
+                <Text style={s.quickIcon}>{a.icon}</Text>
+                <Text style={s.quickLabel}>{a.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        {/* ── STATUS & BADGES ── */}
+        <View style={s.card}>
+          <SectionHeader title="Status & Badges" />
+          <Text style={s.cardSub}>Show clients what you offer or your current status.</Text>
+
+          {/* Badge preview */}
+          <View style={s.badgePreviewRow}>
+            <View style={[s.badgePreview, { backgroundColor: badgeColor }]}>
+              <Text style={{ fontSize: 14 }}>{badgeEmoji}</Text>
+              <Text style={[s.badgePreviewTxt, { color: badgeTextColor }]}>{badgeName || 'Badge Preview'}</Text>
+            </View>
+          </View>
+
+          {/* Badge name input */}
+          <View style={s.badgeInputRow}>
+            <TextInput
+              style={s.badgeInput}
+              value={badgeName}
+              onChangeText={setBadgeName}
+              placeholder="Badge name (e.g. Accepting New Clients)"
+              placeholderTextColor={Colors.soft}
+              maxLength={30}
+            />
+            <TouchableOpacity style={s.emojiPickerBtn} onPress={() => setShowEmojiPicker(true)}>
+              <Text style={{ fontSize: 20 }}>{badgeEmoji}</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Color picker */}
+          <Text style={s.pickerLabel}>Badge Color</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
+            <View style={s.colorRow}>
+              {BADGE_COLORS.map(c => (
+                <TouchableOpacity
+                  key={c}
+                  style={[s.colorDot, { backgroundColor: c }, badgeColor === c && s.colorDotActive]}
+                  onPress={() => setBadgeColor(c)}
+                />
+              ))}
+            </View>
+          </ScrollView>
+
+          {/* Text color */}
+          <Text style={s.pickerLabel}>Text Color</Text>
+          <View style={s.colorRow}>
+            {['#FFFFFF', '#1C1C1E', '#C85D7A', '#F2A7BB', '#7C3AED'].map(c => (
+              <TouchableOpacity
+                key={c}
+                style={[s.colorDot, { backgroundColor: c, borderWidth: 1, borderColor: Colors.border }, badgeTextColor === c && s.colorDotActive]}
+                onPress={() => setBadgeTextColor(c)}
+              />
+            ))}
+          </View>
+
+          <TouchableOpacity
+            style={[s.addBadgeBtn, (!badgeName.trim() || badgeAdding) && { opacity: 0.5 }]}
+            onPress={handleAddBadge}
+            disabled={!badgeName.trim() || badgeAdding}
+          >
+            {badgeAdding ? <ActivityIndicator color={Colors.white} size="small" /> : <Text style={s.addBadgeTxt}>+ Add Badge</Text>}
+          </TouchableOpacity>
+
+          {/* Existing badges */}
+          {badges.length > 0 && (
+            <View style={s.badgeList}>
+              {badges.map(b => (
+                <View key={b.id} style={[s.badgeChip, { backgroundColor: b.color || Colors.rose }]}>
+                  <Text style={{ fontSize: 13 }}>{b.emoji || ''}</Text>
+                  <Text style={[s.badgeChipTxt, { color: b.textColor || '#FFF' }]}>{b.name}</Text>
+                  <TouchableOpacity onPress={() => handleDeleteBadge(b.id)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                    <Ionicons name="close" size={14} color={b.textColor || '#FFF'} />
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
+
+        {/* ── UPCOMING THIS WEEK ── */}
+        {upcomingBookings.length > 0 && (
+          <View style={s.card}>
+            <SectionHeader
+              title="Upcoming This Week"
+              action="Calendar →"
+              onAction={() => router.push('/(owner-tabs)/calendar')}
+            />
+            {upcomingBookings.map((b, i) => (
+              <BookingRow key={b.id || i} booking={b} showDate />
+            ))}
+          </View>
+        )}
+
+        {/* ── SMART INSIGHTS ── */}
+        <View style={s.card}>
+          <SectionHeader title="Smart Insights" action="Full Report →" onAction={() => router.push('/(owner-tabs)/finances')} />
+          <View style={s.insightGrid}>
+            <View style={s.insightItem}>
+              <Text style={s.insightValue}>${(revenueMonth / 100).toLocaleString('en-US', { minimumFractionDigits: 0 })}</Text>
+              <Text style={s.insightLabel}>Revenue (month)</Text>
+            </View>
+            <View style={s.insightItem}>
+              <Text style={s.insightValue}>{bookingsMonth}</Text>
+              <Text style={s.insightLabel}>Bookings (month)</Text>
+            </View>
+            {topService && (
+              <View style={[s.insightItem, { flex: 1, width: '100%' }]}>
+                <Text style={s.insightValue}>💅 {topService.serviceName || topService.service_name || topService.name}</Text>
+                <Text style={s.insightLabel}>Most-booked service ({topService.count || topService.booking_count} bookings)</Text>
+              </View>
+            )}
+            {busiestDay && (
+              <View style={[s.insightItem, { flex: 1, width: '100%' }]}>
+                <Text style={s.insightValue}>📅 {busiestDay}</Text>
+                <Text style={s.insightLabel}>Your busiest day</Text>
+              </View>
+            )}
+          </View>
+        </View>
+
+        {/* ── GROW YOUR BUSINESS ── */}
+        <View style={s.card}>
+          <SectionHeader title="Grow Your Business" />
+
+          {/* QR Code */}
+          <View style={s.growSection}>
+            <Text style={s.growLabel}>📲 Your Booking QR Code</Text>
+            <Text style={s.growSub}>Let clients scan and book instantly.</Text>
+            {qrDataUrl ? (
+              <View style={s.qrBox}>
+                <Image source={{ uri: qrDataUrl }} style={s.qrImage} resizeMode="contain" />
+              </View>
+            ) : (
+              <View style={s.qrBox}>
+                <ActivityIndicator color={Colors.rose} />
+              </View>
+            )}
+            <TouchableOpacity style={s.growBtn} onPress={copyBookingLink}>
+              <Ionicons name="copy-outline" size={16} color={Colors.white} />
+              <Text style={s.growBtnTxt}>Copy Booking Link</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Instagram */}
+          <View style={s.growSection}>
+            <Text style={s.growLabel}>📸 Instagram "Book Now" Link</Text>
+            <Text style={s.growSub}>Copy a caption with your link to paste in your bio or story.</Text>
+            <View style={s.growLinkBox}>
+              <Text style={s.growLinkTxt} numberOfLines={1}>{bookingUrl || 'Set up your profile to get a link'}</Text>
+            </View>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <TouchableOpacity style={[s.growBtn, { flex: 1 }]} onPress={copyInstagramCaption}>
+                <Ionicons name="logo-instagram" size={16} color={Colors.white} />
+                <Text style={s.growBtnTxt}>Copy Caption + Link</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[s.growBtn, { flex: 1, backgroundColor: Colors.charcoal }]}
+                onPress={copyBookingLink}
+              >
+                <Ionicons name="link-outline" size={16} color={Colors.white} />
+                <Text style={s.growBtnTxt}>Copy Link Only</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Website Widget */}
+          <View style={s.growSection}>
+            <Text style={s.growLabel}>🔗 Website Booking Widget</Text>
+            <Text style={s.growSub}>Paste this HTML on your website to add a Book Now button.</Text>
+            <TouchableOpacity style={s.widgetCodeBox} onPress={() => setShowWidget(true)}>
+              <Text style={s.widgetCodeTxt} numberOfLines={4}>{widgetEmbedCode}</Text>
+              <View style={s.widgetTap}>
+                <Ionicons name="code-slash-outline" size={14} color={Colors.rose} />
+                <Text style={s.widgetTapTxt}>Tap to view & copy</Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <View style={{ height: 40 }} />
+      </ScrollView>
+
+      {/* ── Emoji Picker Modal ── */}
+      <Modal visible={showEmojiPicker} transparent animationType="slide" onRequestClose={() => setShowEmojiPicker(false)}>
+        <TouchableOpacity style={s.modalOverlay} activeOpacity={1} onPress={() => setShowEmojiPicker(false)}>
+          <View style={s.emojiModal}>
+            <Text style={s.emojiModalTitle}>Pick an Emoji</Text>
+            <View style={s.emojiGrid}>
+              {BADGE_EMOJIS.map(e => (
+                <TouchableOpacity key={e} style={s.emojiOption} onPress={() => { setBadgeEmoji(e); setShowEmojiPicker(false); }}>
+                  <Text style={{ fontSize: 28 }}>{e}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* ── Widget Code Modal ── */}
+      <Modal visible={showWidget} transparent animationType="slide" onRequestClose={() => setShowWidget(false)}>
+        <View style={s.modalOverlay}>
+          <View style={s.widgetModal}>
+            <View style={s.widgetModalHeader}>
+              <Text style={s.emojiModalTitle}>Website Widget Code</Text>
+              <TouchableOpacity onPress={() => setShowWidget(false)}>
+                <Ionicons name="close" size={22} color={Colors.charcoal} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={{ flex: 1, marginVertical: 12 }}>
+              <Text style={s.widgetFullCode}>{widgetEmbedCode}</Text>
+            </ScrollView>
+            <TouchableOpacity
+              style={[s.growBtn, { marginHorizontal: 0 }]}
+              onPress={async () => {
+                try { await Clipboard.setString(widgetEmbedCode); Alert.alert('Copied!', 'Embed code copied to clipboard.'); }
+                catch { await Share.share({ message: widgetEmbedCode }); }
+              }}
+            >
+              <Ionicons name="copy-outline" size={16} color={Colors.white} />
+              <Text style={s.growBtnTxt}>Copy Embed Code</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+    </View>
+  );
+}
+
+// ─── Styles ──────────────────────────────────────────────────────────────────
+
+const s = StyleSheet.create({
+  container:   { flex: 1, backgroundColor: Colors.cream },
+  center:      { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.cream },
+  topBar:      { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 18, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: Colors.border, backgroundColor: Colors.white },
+  greetingTxt: { fontSize: 18, fontWeight: '900', color: Colors.charcoal, fontFamily: 'Georgia' },
+  dateTxt:     { fontSize: 12, color: Colors.soft, marginTop: 2 },
+  tierPill:    { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1 },
+  tierPillTxt: { fontSize: 11, fontWeight: '800' },
+  bellBtn:     { width: 38, height: 38, borderRadius: 19, backgroundColor: Colors.pinkLight, alignItems: 'center', justifyContent: 'center' },
+  bellBadge:   { position: 'absolute', top: -2, right: -2, backgroundColor: Colors.rose, width: 16, height: 16, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  bellBadgeTxt:{ fontSize: 9, fontWeight: '800', color: Colors.white },
+
+  scroll:      { padding: 16, gap: 12 },
+  card:        { backgroundColor: Colors.white, borderRadius: 18, padding: 16, borderWidth: 1, borderColor: Colors.border },
+  cardTitle:   { fontSize: 15, fontWeight: '900', color: Colors.charcoal, marginBottom: 12, fontFamily: 'Georgia' },
+  cardSub:     { fontSize: 12, color: Colors.soft, marginBottom: 12 },
+
+  sectionHeader:{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
+  sectionTitle: { fontSize: 15, fontWeight: '900', color: Colors.charcoal, fontFamily: 'Georgia' },
+  sectionAction:{ fontSize: 13, fontWeight: '700', color: Colors.rose },
+
+  // Bookings
+  bookingRow:  { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, borderTopWidth: 1, borderTopColor: Colors.border },
+  bookingDot:  { width: 8, height: 8, borderRadius: 4 },
+  bookingClient:{ fontSize: 14, fontWeight: '700', color: Colors.charcoal },
+  bookingMeta: { fontSize: 12, color: Colors.soft, marginTop: 1 },
+  statusPill:  { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999 },
+  statusPillTxt:{ fontSize: 10, fontWeight: '800', textTransform: 'capitalize' },
+  emptyBox:    { alignItems: 'center', paddingVertical: 20, gap: 6 },
+  emptyEmoji:  { fontSize: 28 },
+  emptyTxt:    { fontSize: 13, color: Colors.soft, textAlign: 'center' },
+  moreLink:    { fontSize: 13, fontWeight: '700', color: Colors.rose, textAlign: 'center', marginTop: 8 },
+
+  // Quick Actions
+  quickGrid:   { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  quickBtn:    { flex: 1, minWidth: '45%', backgroundColor: Colors.pinkLight, borderRadius: 14, padding: 14, alignItems: 'center', gap: 6 },
+  quickIcon:   { fontSize: 26 },
+  quickLabel:  { fontSize: 12, fontWeight: '800', color: Colors.charcoal, textAlign: 'center' },
+
+  // Badges
+  badgePreviewRow: { alignItems: 'center', marginBottom: 12 },
+  badgePreview:    { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 999 },
+  badgePreviewTxt: { fontSize: 14, fontWeight: '800' },
+  badgeInputRow:   { flexDirection: 'row', gap: 8, marginBottom: 10 },
+  badgeInput:      { flex: 1, backgroundColor: Colors.cream, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, fontSize: 14, color: Colors.charcoal, borderWidth: 1, borderColor: Colors.border },
+  emojiPickerBtn:  { width: 44, height: 44, backgroundColor: Colors.cream, borderRadius: 10, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.border },
+  pickerLabel:     { fontSize: 11, fontWeight: '700', color: Colors.soft, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6 },
+  colorRow:        { flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginBottom: 12 },
+  colorDot:        { width: 28, height: 28, borderRadius: 14 },
+  colorDotActive:  { borderWidth: 3, borderColor: Colors.charcoal },
+  addBadgeBtn:     { backgroundColor: Colors.rose, borderRadius: 12, paddingVertical: 12, alignItems: 'center', marginTop: 4, flexDirection: 'row', justifyContent: 'center', gap: 6 },
+  addBadgeTxt:     { color: Colors.white, fontWeight: '800', fontSize: 14 },
+  badgeList:       { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
+  badgeChip:       { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999 },
+  badgeChipTxt:    { fontSize: 12, fontWeight: '700' },
+
+  // Insights
+  insightGrid:  { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  insightItem:  { flex: 1, minWidth: '45%', backgroundColor: Colors.cream, borderRadius: 12, padding: 12 },
+  insightValue: { fontSize: 18, fontWeight: '900', color: Colors.charcoal, marginBottom: 2 },
+  insightLabel: { fontSize: 11, color: Colors.soft, fontWeight: '600' },
+
+  // Grow
+  growSection:  { marginBottom: 20, paddingBottom: 20, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  growLabel:    { fontSize: 14, fontWeight: '900', color: Colors.charcoal, marginBottom: 4 },
+  growSub:      { fontSize: 12, color: Colors.soft, marginBottom: 10 },
+  qrBox:        { backgroundColor: Colors.cream, borderRadius: 14, padding: 16, alignItems: 'center', justifyContent: 'center', marginBottom: 10, minHeight: 180 },
+  qrImage:      { width: 160, height: 160 },
+  growBtn:      { backgroundColor: Colors.rose, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  growBtnTxt:   { color: Colors.white, fontWeight: '800', fontSize: 13 },
+  growLinkBox:  { backgroundColor: Colors.cream, borderRadius: 10, padding: 12, marginBottom: 10 },
+  growLinkTxt:  { fontSize: 13, color: Colors.charcoal, fontWeight: '600' },
+  widgetCodeBox:{ backgroundColor: Colors.cream, borderRadius: 10, padding: 12, marginBottom: 10 },
+  widgetCodeTxt:{ fontSize: 10, color: Colors.mid, fontFamily: 'monospace' },
+  widgetTap:    { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 8 },
+  widgetTapTxt: { fontSize: 12, fontWeight: '700', color: Colors.rose },
+
+  // Modals
+  modalOverlay:    { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
+  emojiModal:      { backgroundColor: Colors.white, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24 },
+  emojiModalTitle: { fontSize: 16, fontWeight: '900', color: Colors.charcoal, marginBottom: 16, fontFamily: 'Georgia' },
+  emojiGrid:       { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  emojiOption:     { width: 50, height: 50, alignItems: 'center', justifyContent: 'center' },
+  widgetModal:     { backgroundColor: Colors.white, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, maxHeight: '70%' },
+  widgetModalHeader:{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  widgetFullCode:  { fontSize: 11, color: Colors.mid, fontFamily: 'monospace', lineHeight: 18, backgroundColor: Colors.cream, borderRadius: 10, padding: 12 },
+});

@@ -178,6 +178,57 @@ export default function SettingsScreen() {
               if (tier === 'starter') { Alert.alert('Pro Feature', 'Custom booking policies are available on the Pro plan. Upgrade to set cancellation windows, late-arrival rules, and deposit requirements.'); return; }
               router.push('/owner/policies');
             }} />
+          <Row icon="🗒️" label="Intake Forms"     sub="Collect client info before appointments"
+            onPress={() => router.push('/owner/intake-forms')} />
+        </View>
+
+        {/* Client Programs */}
+        <Text style={s.section}>Client Programs</Text>
+        <View style={s.group}>
+          <Row icon="⭐" label="Loyalty Program"  sub="Punch-card rewards for returning clients"
+            badge={tier === 'starter' ? 'Pro' : undefined}
+            onPress={() => {
+              if (tier === 'starter') { Alert.alert('Pro Feature', 'Loyalty punch cards are available on the Pro plan.'); return; }
+              router.push('/owner/loyalty');
+            }} />
+          <Row icon="💳" label="Memberships"      sub="Monthly plans & pre-paid visit packages"
+            badge={!['salon','studio_elite','owner'].includes(tier) ? 'Salon' : undefined}
+            onPress={() => {
+              if (!['salon','studio_elite','owner'].includes(tier)) { Alert.alert('Salon Feature', 'Memberships and service packages are available on the Salon plan and above.'); return; }
+              router.push('/owner/memberships');
+            }} />
+          <Row icon="📣" label="Campaigns"        sub="Email & SMS marketing to clients"
+            badge={tier === 'starter' ? 'Pro' : undefined}
+            onPress={() => {
+              if (tier === 'starter') { Alert.alert('Pro Feature', 'Marketing campaigns are available on the Pro plan.'); return; }
+              router.push('/owner/campaigns');
+            }} />
+        </View>
+
+        {/* Operations */}
+        <Text style={s.section}>Operations</Text>
+        <View style={s.group}>
+          <Row icon="📦" label="Inventory"        sub="Track retail products and supplies"
+            badge={!['salon','studio_elite','owner'].includes(tier) ? 'Salon' : undefined}
+            onPress={() => {
+              if (!['salon','studio_elite','owner'].includes(tier)) { Alert.alert('Salon Feature', 'Inventory management is available on the Salon plan.'); return; }
+              router.push('/owner/inventory');
+            }} />
+          <Row icon="🏛️" label="Salon Ops"        sub="Multi-chair, team & commission management"
+            badge={!['salon','studio_elite','owner'].includes(tier) ? 'Salon' : undefined}
+            onPress={() => {
+              if (!['salon','studio_elite','owner'].includes(tier)) { Alert.alert('Salon Feature', 'Salon Ops is available on the Salon plan.'); return; }
+              router.push('/owner/team');
+            }} />
+        </View>
+
+        {/* Integrations */}
+        <Text style={s.section}>Integrations</Text>
+        <View style={s.group}>
+          <Row icon="🔌" label="Integrations"     sub="Calendar sync, payments, analytics, social"
+            onPress={() => router.push('/owner/integrations')} />
+          <Row icon="🔗" label="Booking Widget"   sub="QR code, Instagram link, website embed"
+            onPress={() => router.push('/(owner-tabs)/dashboard')} />
         </View>
 
         {/* Plans */}

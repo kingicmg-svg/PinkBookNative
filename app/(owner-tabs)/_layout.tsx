@@ -25,6 +25,13 @@ export default function OwnerTabsLayout() {
       }}
     >
       <Tabs.Screen
+        name="dashboard"
+        options={{
+          title: 'Home',
+          tabBarIcon: ({ color }) => <Ionicons name="home-outline" size={22} color={color as string} />,
+        }}
+      />
+      <Tabs.Screen
         name="calendar"
         options={{
           title: 'Calendar',

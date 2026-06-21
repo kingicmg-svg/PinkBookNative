@@ -183,6 +183,97 @@ export const OwnerApi = {
   // ── Stripe Connect onboarding (pro payout setup) ──
   createAccountLink: (token: string, body: { returnUrl: string }) =>
     request<{ url: string; accountId: string }>('/api/payments/connect/account-link', { method: 'POST', body: JSON.stringify(body) }, token),
+
+  // ── Status Badges ──
+  listBadges: (token: string) =>
+    request<{ badges: any[] }>('/api/v1/status-badges/all', {}, token),
+
+  addBadge: (token: string, body: { id: string; name: string; color: string; textColor?: string; emoji?: string }) =>
+    request<{ badge: any }>('/api/v1/status-badges/add', { method: 'POST', body: JSON.stringify(body) }, token),
+
+  deleteBadge: (token: string, badgeId: string) =>
+    request<{ success: boolean }>(`/api/v1/status-badges/${badgeId}`, { method: 'DELETE' }, token),
+
+  // ── QR Code (no auth needed) ──
+  getQrCode: (url: string) =>
+    request<{ qr: string; url: string }>(`/api/qr?url=${encodeURIComponent(url)}`),
+
+  // ── Loyalty ──
+  getLoyaltyConfig: (token: string) =>
+    request<{ config: any }>('/api/v1/loyalty/config', {}, token),
+
+  saveLoyaltyConfig: (token: string, body: { visits_required: number; reward_text: string; active: boolean }) =>
+    request<{ config: any }>('/api/v1/loyalty/config', { method: 'PUT', body: JSON.stringify(body) }, token),
+
+  getLoyaltyCards: (token: string) =>
+    request<{ cards: any[] }>('/api/v1/loyalty/cards', {}, token),
+
+  // ── Inventory ──
+  listInventory: (token: string) =>
+    request<{ items: any[] }>('/api/v1/inventory', {}, token),
+
+  createInventoryItem: (token: string, body: { name: string; sku?: string; description?: string; price_cents?: number; stock_count?: number; category?: string }) =>
+    request<{ item: any }>('/api/v1/inventory', { method: 'POST', body: JSON.stringify(body) }, token),
+
+  updateInventoryItem: (token: string, id: string, body: Partial<{ name: string; sku: string; description: string; price_cents: number; stock_count: number; category: string; active: boolean }>) =>
+    request<{ item: any }>(`/api/v1/inventory/${id}`, { method: 'PUT', body: JSON.stringify(body) }, token),
+
+  deleteInventoryItem: (token: string, id: string) =>
+    request<{ success: boolean }>(`/api/v1/inventory/${id}`, { method: 'DELETE' }, token),
+
+  adjustStock: (token: string, id: string, body: { delta: number; reason?: string }) =>
+    request<{ item: any }>(`/api/v1/inventory/${id}/stock`, { method: 'PATCH', body: JSON.stringify(body) }, token),
+
+  // ── Memberships ──
+  listMembershipPlans: (token: string) =>
+    request<{ plans: any[] }>('/api/v1/memberships/plans', {}, token),
+
+  createMembershipPlan: (token: string, body: { name: string; description?: string; price_cents?: number; interval?: string; included_services?: string[] }) =>
+    request<{ plan: any }>('/api/v1/memberships/plans', { method: 'POST', body: JSON.stringify(body) }, token),
+
+  deleteMembershipPlan: (token: string, id: string) =>
+    request<{ success: boolean }>(`/api/v1/memberships/plans/${id}`, { method: 'DELETE' }, token),
+
+  listClientMemberships: (token: string) =>
+    request<{ memberships: any[] }>('/api/v1/memberships/client-memberships', {}, token),
+
+  listPackages: (token: string) =>
+    request<{ packages: any[] }>('/api/v1/memberships/packages', {}, token),
+
+  createPackage: (token: string, body: { name: string; description?: string; price_cents?: number; visit_count?: number; service_name?: string }) =>
+    request<{ package: any }>('/api/v1/memberships/packages', { method: 'POST', body: JSON.stringify(body) }, token),
+
+  deletePackage: (token: string, id: string) =>
+    request<{ success: boolean }>(`/api/v1/memberships/packages/${id}`, { method: 'DELETE' }, token),
+
+  // ── Campaigns ──
+  listCampaigns: (token: string) =>
+    request<{ campaigns: any[] }>('/api/v1/campaigns', {}, token),
+
+  createCampaign: (token: string, body: { name: string; channel?: string; audience?: string; subject?: string; body: string; scheduled_at?: string }) =>
+    request<{ campaign: any }>('/api/v1/campaigns', { method: 'POST', body: JSON.stringify(body) }, token),
+
+  deleteCampaign: (token: string, id: string) =>
+    request<{ ok: boolean }>(`/api/v1/campaigns/${id}`, { method: 'DELETE' }, token),
+
+  sendCampaign: (token: string, id: string) =>
+    request<{ ok: boolean; sent: number }>(`/api/v1/campaigns/${id}/send`, { method: 'POST' }, token),
+
+  // ── Intake Forms ──
+  listIntakeForms: (token: string) =>
+    request<{ forms: any[] }>('/api/v1/intake/all', {}, token),
+
+  getIntakeForm: (token: string, serviceName?: string) =>
+    request<{ form: any }>(serviceName ? `/api/v1/intake?service=${encodeURIComponent(serviceName)}` : '/api/v1/intake', {}, token),
+
+  saveIntakeForm: (token: string, body: { service_name?: string; fields: any[]; active?: boolean }) =>
+    request<{ form: any }>('/api/v1/intake', { method: 'PUT', body: JSON.stringify(body) }, token),
+
+  deleteIntakeForm: (token: string, serviceName?: string) =>
+    request<{ ok: boolean }>('/api/v1/intake', { method: 'DELETE', body: JSON.stringify(serviceName ? { service_name: serviceName } : {}) }, token),
+
+  getIntakeResponses: (token: string, bookingId: string) =>
+    request<{ responses: any[] }>(`/api/v1/intake/responses/${bookingId}`, {}, token),
 };
 
 // ── Payments (booking deposits, native PaymentSheet) ─────────────────────
