@@ -347,7 +347,38 @@ export const ClientApi = {
     request<{ bookings: any[] }>('/api/client/auth/bookings', {}, token),
 
   updateProfile: (token: string, body: { first_name?: string; last_name?: string; phone?: string }) =>
-    request<{ client: any }>('/api/client/auth/update', { method: 'PATCH', body: JSON.stringify(body) }, token),
+    request<{ client: any }>('/api/client/auth/me', { method: 'PATCH', body: JSON.stringify(body) }, token),
+
+  // ── Saved stylists ──
+  savedStylists: (token: string) =>
+    request<{ stylists: any[] }>('/api/client/auth/saved', {}, token),
+
+  saveStylist: (token: string, slug: string) =>
+    request<{ saved: boolean }>(`/api/client/auth/saved/${encodeURIComponent(slug)}`, { method: 'POST' }, token),
+
+  unsaveStylist: (token: string, slug: string) =>
+    request<{ saved: boolean }>(`/api/client/auth/saved/${encodeURIComponent(slug)}`, { method: 'DELETE' }, token),
+
+  // ── Client loyalty cards (all stylists) ──
+  loyaltyCards: (token: string) =>
+    request<{ cards: any[] }>('/api/client/auth/loyalty-cards', {}, token),
+
+  // ── Notification preferences ──
+  notifPrefs: (token: string) =>
+    request<{ prefs: any }>('/api/client/auth/notif-prefs', {}, token),
+
+  updateNotifPrefs: (token: string, body: { bookingReminders?: boolean; bookingConfirmed?: boolean; loyaltyUpdates?: boolean; marketing?: boolean }) =>
+    request<{ ok: boolean }>('/api/client/auth/notif-prefs', { method: 'PUT', body: JSON.stringify(body) }, token),
+
+  // ── Reviews (requires booking proof, AI-vetted) ──
+  submitReview: (token: string, body: { slug: string; rating: number; comment?: string }) =>
+    request<{ review: any; moderation: any }>('/api/client/reviews', { method: 'POST', body: JSON.stringify(body) }, token),
+
+  getMyReview: (token: string, slug: string) =>
+    request<{ review: any | null }>(`/api/client/reviews/${encodeURIComponent(slug)}`, {}, token),
+
+  deleteReview: (token: string, slug: string) =>
+    request<{ success: boolean }>(`/api/client/reviews/${encodeURIComponent(slug)}`, { method: 'DELETE' }, token),
 };
 
 // ── Discovery (public, no auth) ────────────────────────────────────────────
