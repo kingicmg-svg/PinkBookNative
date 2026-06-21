@@ -133,6 +133,9 @@ export const OwnerApi = {
   brandProfileSave: (token: string, body: any) =>
     request<{ success: boolean; data: any }>('/api/v1/brand-studio/profile', { method: 'POST', body: JSON.stringify(body) }, token),
 
+  uploadBanner: (token: string, body: { imageData: string }) =>
+    request<{ bannerImageUrl: string }>('/api/v1/brand-studio/upload/banner', { method: 'POST', body: JSON.stringify(body) }, token),
+
   // ── Gallery ──
   brandGallery: (token: string) =>
     request<{ gallery: any[] }>('/api/v1/brand-studio/gallery', {}, token),
@@ -152,6 +155,19 @@ export const OwnerApi = {
 
   deleteLogo: (token: string) =>
     request<{ success: boolean }>('/api/v1/brand-studio/logo', { method: 'DELETE' }, token),
+
+  // ── Staff / Team (Salon+) ──
+  listStaff: (token: string) =>
+    request<{ staff: any[] }>('/api/v1/staff', {}, token),
+
+  createStaff: (token: string, body: { name: string; role?: string; color_hex?: string; services?: string[]; schedule?: any }) =>
+    request<{ staff: any }>('/api/v1/staff', { method: 'POST', body: JSON.stringify(body) }, token),
+
+  updateStaff: (token: string, id: string, body: { name?: string; role?: string; color_hex?: string; services?: string[]; schedule?: any; active?: boolean }) =>
+    request<{ staff: any }>(`/api/v1/staff/${id}`, { method: 'PUT', body: JSON.stringify(body) }, token),
+
+  deleteStaff: (token: string, id: string) =>
+    request<{ success: boolean }>(`/api/v1/staff/${id}`, { method: 'DELETE' }, token),
 
   // ── Subscription billing (Pro/Salon/Studio Elite) ──
   getSubscriptionStatus: (token: string) =>

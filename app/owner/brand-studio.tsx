@@ -68,6 +68,16 @@ export default function BrandStudioScreen() {
   const [uploading, setUploading]     = useState(false);
   const [tier, setTier]               = useState('starter');
 
+  // Step 1 — Banner (Salon+)
+  const [bannerUrl, setBannerUrl]             = useState<string | null>(null);
+  const [bannerUploading, setBannerUploading] = useState(false);
+
+  // Elite-only fields
+  const [whiteLabelEnabled, setWhiteLabel] = useState(false);
+  const [customDomain, setCustomDomain]   = useState('');
+  const [customEmailDomain, setCustomEmailDomain] = useState('');
+  const [pwaAppName, setPwaAppName]       = useState('');
+
   useEffect(() => {
     if (!token) return;
     Promise.all([
@@ -104,6 +114,15 @@ export default function BrandStudioScreen() {
       setShowAnnouncement(
         bp.announcement_active !== undefined ? !!bp.announcement_active : !!st.showAnnouncement,
       );
+
+      // Banner
+      setBannerUrl(bp.banner_image_url || null);
+
+      // Elite fields
+      setWhiteLabel(!!bp.white_label_enabled);
+      setCustomDomain(bp.custom_domain || '');
+      setCustomEmailDomain(bp.custom_email_domain || '');
+      setPwaAppName(bp.pwa_app_name || '');
 
       setTier(st.subscriptionTier || st.subscription_tier || 'starter');
     }).catch(() => {}).finally(() => setLoading(false));
@@ -153,6 +172,15 @@ export default function BrandStudioScreen() {
         cancellationNote: cancelNote,
         announcementText,
         announcementActive: showAnnouncement,
+        // Salon+
+        ...(isSalon && bannerUrl ? { bannerImageUrl: bannerUrl } : {}),
+        // Studio Elite only
+        ...(isElite ? {
+          whiteLabelEnabled: whiteLabelEnabled,
+          customDomain: customDomain.trim(),
+          customEmailDomain: customEmailDomain.trim(),
+          pwaAppName: pwaAppName.trim(),
+        } : {}),
       });
       Alert.alert('Saved!', 'Your brand settings have been updated.');
     } catch(e:any) { Alert.alert('Error', e.message||'Save failed'); }
@@ -160,7 +188,9 @@ export default function BrandStudioScreen() {
   };
 
   // ── Gallery helpers ───────────────────────────────────────────────────────
-  const isElite = tier === 'studio_elite' || tier === 'owner';
+  const isElite  = tier === 'studio_elite' || tier === 'owner';
+  const isSalon  = isElite || tier === 'salon';
+  const isPro    = isSalon || tier === 'pro';
 
   const pickAndUpload = async (opts: { isBefore?: boolean; pairId?: string | null; caption?: string }) => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -443,6 +473,84 @@ export default function BrandStudioScreen() {
               <Text style={[s.fontSample, displayFont===f&&{color:C.rose}]}>Aa Bb Cc</Text>
             </TouchableOpacity>
           ))}
+
+          {/* Banner Image — Salon+ */}
+          <View style={s.tierSection}>
+            <View style={s.tierSectionHeader}>
+              <Text style={s.tierSectionTitle}>Banner Image</Text>
+              <View style={[s.tierBadge, { backgroundColor: '#7C3AED20' }]}><Text style={[s.tierBadgeTxt, { color: '#7C3AED' }]}>Salon+</Text></View>
+            </View>
+            {!isSalon ? (
+              <View style={s.lockInline}>
+                <Text style={s.lockInlineTxt}>🔒 Available on Salon plan and above. Shown as a header on your booking page.</Text>
+                <TouchableOpacity onPress={() => router.push('/owner/upgrade')}><Text style={s.lockInlineLink}>Upgrade →</Text></TouchableOpacity>
+              </View>
+            ) : (
+              <>
+                {bannerUrl ? (
+                  <Image source={{ uri: bannerUrl }} style={s.bannerPreview} resizeMode="cover" />
+                ) : (
+                  <View style={[s.bannerPreview, { backgroundColor: C.pinkLight, alignItems: 'center', justifyContent: 'center' }]}>
+                    <Text style={{ fontSize: 28 }}>🖼️</Text>
+                    <Text style={{ fontSize: 12, color: C.soft, marginTop: 4 }}>No banner set</Text>
+                  </View>
+                )}
+                <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
+                  <TouchableOpacity
+                    style={[s.logoBtn, bannerUploading && { opacity: 0.5 }]}
+                    disabled={bannerUploading}
+                    onPress={async () => {
+                      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+                      if (status !== 'granted') { Alert.alert('Permission needed', 'Allow photo library access to upload a banner.'); return; }
+                      const result = await ImagePicker.launchImageLibraryAsync({
+                        mediaTypes: ['images'], allowsEditing: true, aspect: [3, 1], quality: 0.8, base64: true,
+                      });
+                      if (result.canceled || !result.assets[0]?.base64) return;
+                      setBannerUploading(true);
+                      try {
+                        const imageData = `data:image/jpeg;base64,${result.assets[0].base64}`;
+                        const r = await OwnerApi.uploadBanner(token!, { imageData });
+                        setBannerUrl(r.bannerImageUrl);
+                      } catch (e: any) { Alert.alert('Upload Failed', e.message || 'Please try again.'); }
+                      finally { setBannerUploading(false); }
+                    }}
+                  >
+                    {bannerUploading
+                      ? <ActivityIndicator color={C.white} size="small" />
+                      : <Text style={s.logoBtnTxt}>{bannerUrl ? '↺ Replace Banner' : '+ Upload Banner'}</Text>}
+                  </TouchableOpacity>
+                  {!!bannerUrl && (
+                    <TouchableOpacity style={s.logoDeleteBtn} onPress={() => setBannerUrl(null)}>
+                      <Text style={s.logoDeleteTxt}>✕ Remove</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+                <Text style={s.logoHint}>Wide image (3:1 ratio) recommended</Text>
+              </>
+            )}
+          </View>
+
+          {/* White-label & Elite — Studio Elite only */}
+          <View style={s.tierSection}>
+            <View style={s.tierSectionHeader}>
+              <Text style={s.tierSectionTitle}>White-Label Mode</Text>
+              <View style={[s.tierBadge, { backgroundColor: C.charcoal + '15' }]}><Text style={[s.tierBadgeTxt, { color: C.charcoal }]}>⭐ Studio Elite</Text></View>
+            </View>
+            {!isElite ? (
+              <View style={s.lockInline}>
+                <Text style={s.lockInlineTxt}>🔒 Hide all PinkBook branding from your booking page. Clients only see your brand.</Text>
+                <TouchableOpacity onPress={() => router.push('/owner/upgrade')}><Text style={s.lockInlineLink}>Upgrade →</Text></TouchableOpacity>
+              </View>
+            ) : (
+              <View style={s.toggleRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={s.toggleLabel}>Enable White-Label Mode</Text>
+                  <Text style={s.toggleSub}>Removes all PinkBook branding — "Powered by PinkBook" credit only</Text>
+                </View>
+                <Switch value={whiteLabelEnabled} onValueChange={setWhiteLabel} trackColor={{ false: C.border, true: C.charcoal }} thumbColor={C.white} />
+              </View>
+            )}
+          </View>
         </>
       );
       case 2: return (
@@ -458,6 +566,73 @@ export default function BrandStudioScreen() {
           <TextInput style={s.input} value={instagram} onChangeText={setInstagram} placeholder="@yourstudio" placeholderTextColor={C.soft} autoCapitalize="none" />
           <Text style={s.label}>TikTok (optional)</Text>
           <TextInput style={s.input} value={tiktok} onChangeText={setTiktok} placeholder="@yourstudio" placeholderTextColor={C.soft} autoCapitalize="none" />
+
+          {/* Custom Domain — Studio Elite */}
+          <View style={s.tierSection}>
+            <View style={s.tierSectionHeader}>
+              <Text style={s.tierSectionTitle}>Custom Domain</Text>
+              <View style={[s.tierBadge, { backgroundColor: C.charcoal + '15' }]}><Text style={[s.tierBadgeTxt, { color: C.charcoal }]}>⭐ Studio Elite</Text></View>
+            </View>
+            {!isElite ? (
+              <View style={s.lockInline}>
+                <Text style={s.lockInlineTxt}>🔒 Use yourstudio.com instead of pinkbook.app/your-slug. Includes auto SSL.</Text>
+                <TouchableOpacity onPress={() => router.push('/owner/upgrade')}><Text style={s.lockInlineLink}>Upgrade →</Text></TouchableOpacity>
+              </View>
+            ) : (
+              <>
+                <Text style={s.label}>Your Domain</Text>
+                <TextInput
+                  style={s.input}
+                  value={customDomain}
+                  onChangeText={setCustomDomain}
+                  placeholder="yourstudio.com"
+                  placeholderTextColor={C.soft}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  keyboardType="url"
+                />
+                <Text style={s.logoHint}>Point your domain's CNAME to pinkbook.app to activate. SSL is provisioned automatically.</Text>
+              </>
+            )}
+          </View>
+
+          {/* Custom Email Domain — Studio Elite */}
+          <View style={s.tierSection}>
+            <View style={s.tierSectionHeader}>
+              <Text style={s.tierSectionTitle}>Custom Email Domain</Text>
+              <View style={[s.tierBadge, { backgroundColor: C.charcoal + '15' }]}><Text style={[s.tierBadgeTxt, { color: C.charcoal }]}>⭐ Studio Elite</Text></View>
+            </View>
+            {!isElite ? (
+              <View style={s.lockInline}>
+                <Text style={s.lockInlineTxt}>🔒 Send booking confirmations from hello@yourstudio.com instead of pinkbook.app.</Text>
+                <TouchableOpacity onPress={() => router.push('/owner/upgrade')}><Text style={s.lockInlineLink}>Upgrade →</Text></TouchableOpacity>
+              </View>
+            ) : (
+              <>
+                <Text style={s.label}>Email Domain</Text>
+                <TextInput
+                  style={s.input}
+                  value={customEmailDomain}
+                  onChangeText={setCustomEmailDomain}
+                  placeholder="yourstudio.com"
+                  placeholderTextColor={C.soft}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  keyboardType="email-address"
+                />
+                <Text style={s.label}>Branded App Name</Text>
+                <TextInput
+                  style={s.input}
+                  value={pwaAppName}
+                  onChangeText={setPwaAppName}
+                  placeholder="My Studio"
+                  placeholderTextColor={C.soft}
+                  autoCapitalize="words"
+                />
+                <Text style={s.logoHint}>Shown as the PWA install name on client devices</Text>
+              </>
+            )}
+          </View>
         </>
       );
       case 3: return (
@@ -646,4 +821,14 @@ const s = StyleSheet.create({
   lockSub:       {fontSize:13,color:C.mid,textAlign:'center',lineHeight:18,marginBottom:12},
   lockBtn:       {backgroundColor:C.rose,paddingHorizontal:20,paddingVertical:10,borderRadius:999},
   lockBtnTxt:    {color:C.white,fontWeight:'800',fontSize:13},
+  // Tier-section containers
+  tierSection:      {backgroundColor:C.white,borderRadius:14,padding:16,borderWidth:1,borderColor:C.border,marginTop:16,marginBottom:4},
+  tierSectionHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:12},
+  tierSectionTitle: {fontSize:14,fontWeight:'800',color:C.charcoal},
+  tierBadge:        {paddingHorizontal:8,paddingVertical:3,borderRadius:999},
+  tierBadgeTxt:     {fontSize:10,fontWeight:'800'},
+  lockInline:       {gap:6},
+  lockInlineTxt:    {fontSize:13,color:C.soft,lineHeight:18},
+  lockInlineLink:   {fontSize:13,color:C.rose,fontWeight:'800'},
+  bannerPreview:    {width:'100%',height:120,borderRadius:12,overflow:'hidden',backgroundColor:C.pinkLight},
 });

@@ -163,7 +163,10 @@ export default function SettingsScreen() {
         <Text style={s.section}>Business</Text>
         <View style={s.group}>
           <Row icon="🕐" label="Working Hours"    sub="Set your availability by day"       onPress={() => router.push('/owner/availability')} />
-          <Row icon="🔔" label="Notifications"    sub="Email and SMS preferences"
+          <Row icon="�" label="Team Members"     sub="Stylists, roles & schedules"
+            badge={!['salon','studio_elite','owner'].includes(tier) ? 'Salon' : undefined}
+            onPress={() => router.push('/owner/team')} />
+          <Row icon="�🔔" label="Notifications"    sub="Email and SMS preferences"
             badge={tier === 'starter' ? 'Pro' : undefined}
             onPress={() => {
               if (tier === 'starter') { Alert.alert('Pro Feature', 'Email and SMS notifications are available on the Pro plan. Upgrade to configure notification channels and reminder timing.'); return; }
