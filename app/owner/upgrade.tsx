@@ -106,7 +106,7 @@ export default function UpgradeScreen() {
         if (checkout && checkout.url) {
           const result = await WebBrowser.openBrowserAsync(checkout.url);
 
-          if (result.type === 'success') {
+          if ((result as any).type === 'success' || result.type === 'dismiss') {
             // Poll for subscription status
             let activated = false;
             for (let i = 0; i < 6; i++) {

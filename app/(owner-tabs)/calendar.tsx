@@ -633,6 +633,14 @@ export default function CalendarScreen() {
   const pendingBookings = bookings.filter(b => b.status === 'pending');
   const weekRevenue     = analytics?.revenue?.week ?? 0;
   const totalClients    = analytics?.clients?.total ?? 0;
+  const tier            = settings?.subscriptionTier || settings?.subscription_tier || 'starter';
+  // Starter: soft gate when >= 20 bookings in current calendar month
+  const thisMonthBookings = bookings.filter(b => {
+    const t = b.appointmentTime || b.appointment_time || b.time || '';
+    try { const d = new Date(t); const n = new Date(); return d.getFullYear()===n.getFullYear() && d.getMonth()===n.getMonth(); }
+    catch { return false; }
+  });
+  const showStarterGate = tier === 'starter' && thisMonthBookings.length >= 20;
 
   return (
     <View style={[s.container, { paddingTop: insets.top }]}>
@@ -659,6 +667,14 @@ export default function CalendarScreen() {
             onPress={() => { setFilter('Pending'); }} />
           <StatCard icon="👥" label="Clients" value={String(totalClients)} color={C.success} />
         </View>
+
+        {/* Starter tier soft gate banner */}
+        {showStarterGate && (
+          <TouchableOpacity style={s.gateBanner} onPress={() => router.push('/owner/upgrade')}>
+            <Text style={s.gateBannerTitle}>📅 Monthly limit reached</Text>
+            <Text style={s.gateBannerSub}>Starter allows 20 bookings/month. Upgrade to Pro for unlimited bookings. Tap to view plans →</Text>
+          </TouchableOpacity>
+        )}
 
         {/* Week date strip */}
         <View style={s.stripWrapper}>
@@ -767,6 +783,9 @@ const s = StyleSheet.create({
   addBtnTxt:      { color:C.white, fontWeight:'800', fontSize:14 },
   scroll:         { paddingBottom:40 },
   statsRow:       { flexDirection:'row', padding:14, gap:10 },
+  gateBanner:     { marginHorizontal:14, marginBottom:10, backgroundColor:'#FEF3C7', borderRadius:14, padding:14, borderWidth:1, borderColor:'#FCD34D' },
+  gateBannerTitle: { fontSize:14, fontWeight:'800', color:'#92400E', marginBottom:4 },
+  gateBannerSub:  { fontSize:12, color:'#92400E', lineHeight:17 },
   statCard:       { flex:1, backgroundColor:C.white, borderRadius:14, padding:12, alignItems:'center', shadowColor:C.charcoal, shadowOffset:{width:0,height:2}, shadowOpacity:0.06, shadowRadius:8, elevation:2 },
   statIcon:       { fontSize:18, marginBottom:4 },
   statValue:      { fontSize:18, fontWeight:'900' },

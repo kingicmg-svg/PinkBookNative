@@ -1,13 +1,17 @@
-import * as Camera from 'expo-camera';
 import * as FileSystem from 'expo-file-system';
-import { CameraView, CameraType } from 'expo-camera';
+import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
 
 export class CameraService {
   private static cameraRef: any = null;
 
   static async requestPermissions() {
-    const { status } = await Camera.requestCameraPermissions();
-    return status === 'granted';
+    try {
+      const mod = await import('expo-camera');
+      const fn = (mod as any).requestCameraPermissionsAsync ||
+                 (mod as any).Camera?.requestCameraPermissionsAsync;
+      const result = fn ? await fn() : { status: 'denied' };
+      return result.status === 'granted';
+    } catch { return false; }
   }
 
   static async capturePhoto(): Promise<string> {
@@ -24,7 +28,7 @@ export class CameraService {
 
       // Save to permanent storage
       const filename = `photo-${Date.now()}.jpg`;
-      const path = `${FileSystem.documentDirectory}${filename}`;
+      const path = `${(FileSystem as any).documentDirectory ?? ''}${filename}`;
       await FileSystem.copyAsync({
         from: photo.uri,
         to: path,

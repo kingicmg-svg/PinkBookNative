@@ -8,14 +8,38 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../hooks/useAuth';
 import { useBiometricAuth } from '../hooks/useBiometricAuth';
+import { useGoogleAuth } from '../hooks/useGoogleAuth';
 import { OwnerApi } from '../services/ApiService';
 import Colors from '../../constants/Colors';
+
+const GOOGLE_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID || null;
 
 export default function OwnerLoginScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { signIn } = useAuth();
   const bio = useBiometricAuth();
+  const google = useGoogleAuth(GOOGLE_CLIENT_ID);
+  const [googleLoading, setGoogleLoading] = useState(false);
+
+  // Handle Google Sign-In response
+  useEffect(() => {
+    if (!google.idToken) return;
+    (async () => {
+      setGoogleLoading(true);
+      setError(null);
+      try {
+        const res = await OwnerApi.googleSignIn(google.idToken!);
+        if (!res.token) throw new Error('No token returned');
+        await signIn(res.token);
+        router.replace('/(owner-tabs)/calendar');
+      } catch (e: any) {
+        setError(e.message || 'Google sign-in failed');
+      } finally {
+        setGoogleLoading(false);
+      }
+    })();
+  }, [google.idToken]);
 
   const [email, setEmail]             = useState('');
   const [password, setPassword]       = useState('');
@@ -133,7 +157,18 @@ export default function OwnerLoginScreen() {
               : <Text style={styles.bioBtnText}>🔓 Sign in with {bio.biometricLabel}</Text>}
           </TouchableOpacity>
         )}
-
+        {/* Google Sign-In */}
+        {google.ready && (
+          <TouchableOpacity
+            style={[styles.googleBtn, googleLoading && { opacity: 0.6 }]}
+            onPress={() => google.promptAsync()}
+            disabled={googleLoading}
+          >
+            {googleLoading
+              ? <ActivityIndicator color={Colors.charcoal} size="small" />
+              : <Text style={styles.googleBtnText}>🌐 Continue with Google</Text>}
+          </TouchableOpacity>
+        )}
         <TouchableOpacity style={styles.link} onPress={() => router.replace('/auth/owner-register')}>
           <Text style={styles.linkText}>New to PinkBook? Create a free account →</Text>
         </TouchableOpacity>
@@ -156,8 +191,10 @@ const styles = StyleSheet.create({
   input:       { backgroundColor: Colors.white, borderRadius: 14, paddingHorizontal: 16, paddingVertical: 14, fontSize: 15, color: Colors.charcoal, borderWidth: 1, borderColor: Colors.border, marginBottom: 16 },
   btn:         { backgroundColor: Colors.charcoal, borderRadius: 100, paddingVertical: 16, alignItems: 'center', marginTop: 8, marginBottom: 16 },
   btnText:     { color: Colors.white, fontWeight: '800', fontSize: 15 },
-  bioBtn:      { borderWidth: 1.5, borderColor: Colors.rose, borderRadius: 100, paddingVertical: 14, alignItems: 'center', marginBottom: 20 },
+  bioBtn:      { borderWidth: 1.5, borderColor: Colors.rose, borderRadius: 100, paddingVertical: 14, alignItems: 'center', marginBottom: 12 },
   bioBtnText:  { color: Colors.rose, fontWeight: '700', fontSize: 14 },
+  googleBtn:   { borderWidth: 1.5, borderColor: Colors.border, borderRadius: 100, paddingVertical: 14, alignItems: 'center', marginBottom: 20 },
+  googleBtnText: { color: Colors.charcoal, fontWeight: '700', fontSize: 14 },
   link:        { alignItems: 'center' },
   linkText:    { color: Colors.rose, fontSize: 13, fontWeight: '600' },
 });
