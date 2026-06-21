@@ -54,6 +54,9 @@ export const OwnerApi = {
   me: (token: string) =>
     request<{ user: any }>('/api/v1/auth/me', {}, token),
 
+  updateProfile: (token: string, body: { name?: string; phone?: string }) =>
+    request<{ user: any }>('/api/v1/auth/update-profile', { method: 'PATCH', body: JSON.stringify(body) }, token),
+
   forgotPassword: (email: string) =>
     request<{ message: string }>('/api/v1/auth/forgot-password', { method: 'POST', body: JSON.stringify({ email }) }),
 

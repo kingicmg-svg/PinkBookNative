@@ -7,7 +7,7 @@ import { useAuth } from '../hooks/useAuth';
 import { OwnerApi, API_URL } from '../services/ApiService';
 import Colors from '../../constants/Colors';
 
-const TIER_ORDER = ['starter', 'pro', 'salon', 'studio_elite'];
+const TIER_ORDER = ['starter', 'pro', 'salon', 'studio_elite', 'owner'];
 
 const PLANS = [
   {
@@ -48,6 +48,7 @@ export default function UpgradeScreen() {
   }, [token]);
 
   const getPlanLabel = (planId: string) => {
+    if (currentTier === 'owner') return 'Owner Access';
     const planName = PLANS.find(p => p.id === planId)?.name || planId;
     const currentRank = TIER_ORDER.indexOf(currentTier);
     const planRank = TIER_ORDER.indexOf(planId);
@@ -57,6 +58,10 @@ export default function UpgradeScreen() {
   };
 
   const handlePlanAction = async (planId: string) => {
+    if (currentTier === 'owner') {
+      Alert.alert('Owner Access', 'Platform owner accounts have unrestricted access to all features.');
+      return;
+    }
     if (!token) {
       Alert.alert('Sign in required', 'Please sign in to upgrade your plan.');
       return;

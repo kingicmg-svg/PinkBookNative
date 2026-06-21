@@ -412,7 +412,7 @@ function AddBookingModal({ visible, clients, settings, onClose, onSave }:
               setSelectedClient(c);
               setClientSearch(c.name || c.contactEmail || '');
               setClientEmail(c.contactEmail || '');
-              setClientPhone(c.phone || '');
+              setClientPhone(c.contactPhone || c.phone || '');
             }}>
               <Text style={m.optionTxt}>{c.name || 'Unknown'}</Text>
               {!!c.contactEmail && <Text style={m.optionSub}>{c.contactEmail}</Text>}

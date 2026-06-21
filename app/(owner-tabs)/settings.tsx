@@ -13,6 +13,7 @@ const TIER_META: Record<string, { label: string; color: string; emoji: string }>
   pro:          { label: 'Pro',          color: Colors.rose,     emoji: '💜' },
   salon:        { label: 'Salon',        color: '#7C3AED',       emoji: '👑' },
   studio_elite: { label: 'Studio Elite', color: Colors.charcoal, emoji: '⭐' },
+  owner:        { label: 'Owner',        color: Colors.gold,     emoji: '🔑' },
 };
 
 interface RowProps { icon: string; label: string; sub?: string; onPress: () => void; danger?: boolean; badge?: string; }

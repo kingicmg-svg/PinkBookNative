@@ -160,7 +160,7 @@ export default function BrandStudioScreen() {
   };
 
   // ── Gallery helpers ───────────────────────────────────────────────────────
-  const isElite = tier === 'studio_elite';
+  const isElite = tier === 'studio_elite' || tier === 'owner';
 
   const pickAndUpload = async (opts: { isBefore?: boolean; pairId?: string | null; caption?: string }) => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();

@@ -12,14 +12,15 @@ import { useGoogleAuth } from '../hooks/useGoogleAuth';
 import { OwnerApi } from '../services/ApiService';
 import Colors from '../../constants/Colors';
 
-const GOOGLE_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID || null;
+const GOOGLE_CLIENT_ID     = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID || null;
+const GOOGLE_IOS_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || null;
 
 export default function OwnerLoginScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { signIn } = useAuth();
   const bio = useBiometricAuth();
-  const google = useGoogleAuth(GOOGLE_CLIENT_ID);
+  const google = useGoogleAuth(GOOGLE_CLIENT_ID, GOOGLE_IOS_CLIENT_ID);
   const [googleLoading, setGoogleLoading] = useState(false);
 
   // Handle Google Sign-In response

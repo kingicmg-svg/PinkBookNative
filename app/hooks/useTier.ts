@@ -10,7 +10,23 @@ import { useState, useEffect } from 'react';
 import { useAuth } from './useAuth';
 import { SettingsApi } from '../services/ApiService';
 
-export type Tier = 'starter' | 'pro' | 'salon' | 'studio_elite';
+export type Tier = 'starter' | 'pro' | 'salon' | 'studio_elite' | 'owner';
+
+const OWNER_FEATURES: Record<string, boolean> = {
+  stripeIntegration:          true,
+  emailNotifications:         true,
+  smsNotifications:           true,
+  customPoliciesDeposits:     true,
+  smartSchedulingBuffers:     true,
+  fullClientNotes:            true,
+  csvImport:                  true,
+  autoReceipts:               true,
+  multiStylistProfiles:       true,
+  teamAvailabilityManagement: true,
+  prioritySupport:            true,
+  brandStudio:                true,
+  whiteLabelMode:             true,
+};
 
 const FEATURE_MATRIX: Record<Tier, Record<string, boolean>> = {
   starter: {
@@ -73,9 +89,10 @@ const FEATURE_MATRIX: Record<Tier, Record<string, boolean>> = {
     brandStudio:             true,
     whiteLabelMode:          true,
   },
+  owner: OWNER_FEATURES,
 };
 
-const VALID_TIERS = new Set<string>(['starter', 'pro', 'salon', 'studio_elite']);
+const VALID_TIERS = new Set<string>(['starter', 'pro', 'salon', 'studio_elite', 'owner']);
 
 function normalizeTier(raw: string | undefined | null): Tier {
   const t = String(raw || '').toLowerCase().trim();
@@ -100,6 +117,7 @@ export function useTier() {
   }, [token]);
 
   function hasFeature(featureName: string): boolean {
+    if (tier === 'owner') return true;
     return Boolean(FEATURE_MATRIX[tier]?.[featureName]);
   }
 

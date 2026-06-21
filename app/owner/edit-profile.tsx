@@ -43,7 +43,10 @@ export default function EditProfileScreen() {
     if (!token) return;
     setSaving(true); setError(null);
     try {
-      await SettingsApi.save(token, { studioName, bio, city, profession, category });
+      await Promise.all([
+        SettingsApi.save(token, { studioName, bio, city, profession, category }),
+        OwnerApi.updateProfile(token, { name, phone }),
+      ]);
       Alert.alert('Saved', 'Profile updated successfully.');
       router.back();
     } catch (e: any) { setError(e.message || 'Save failed'); }
