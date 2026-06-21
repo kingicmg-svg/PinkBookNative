@@ -7,6 +7,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../hooks/useAuth';
 import { OwnerApi } from '../services/ApiService';
 import Colors from '../../constants/Colors';
+import { useTheme } from '../hooks/useTheme';
+import type { AppTheme } from '../../constants/Colors';
 
 const C = Colors;
 const FILTERS = ['all','vip','new','regular','sensitive','coily','curly','wavy'];
@@ -48,20 +50,20 @@ function ClientModal({ visible, client, onClose, onSave }: { visible:boolean; cl
           <TouchableOpacity onPress={onClose}><Text style={cm.cancelTxt}>Cancel</Text></TouchableOpacity>
           <Text style={cm.title}>{client ? 'Edit Client' : 'Add Client'}</Text>
           <TouchableOpacity onPress={save} disabled={saving}>
-            {saving ? <ActivityIndicator color={C.rose} size="small" /> : <Text style={cm.saveTxt}>Save</Text>}
+            {saving ? <ActivityIndicator color={T.rose} size="small" /> : <Text style={cm.saveTxt}>Save</Text>}
           </TouchableOpacity>
         </View>
         <ScrollView contentContainerStyle={cm.scroll} keyboardShouldPersistTaps="handled">
           <Text style={cm.label}>FULL NAME *</Text>
-          <TextInput style={cm.input} value={name} onChangeText={setName} placeholder="e.g. Amara Johnson" placeholderTextColor={C.soft} />
+          <TextInput style={cm.input} value={name} onChangeText={setName} placeholder="e.g. Amara Johnson" placeholderTextColor={T.textMuted} />
           <Text style={cm.label}>EMAIL</Text>
-          <TextInput style={cm.input} value={email} onChangeText={setEmail} placeholder="email@example.com" placeholderTextColor={C.soft} keyboardType="email-address" autoCapitalize="none" />
+          <TextInput style={cm.input} value={email} onChangeText={setEmail} placeholder="email@example.com" placeholderTextColor={T.textMuted} keyboardType="email-address" autoCapitalize="none" />
           <Text style={cm.label}>PHONE</Text>
-          <TextInput style={cm.input} value={phone} onChangeText={setPhone} placeholder="+1 (555) 000-0000" placeholderTextColor={C.soft} keyboardType="phone-pad" />
+          <TextInput style={cm.input} value={phone} onChangeText={setPhone} placeholder="+1 (555) 000-0000" placeholderTextColor={T.textMuted} keyboardType="phone-pad" />
           <Text style={cm.label}>BIRTHDAY (MM-DD or YYYY-MM-DD)</Text>
-          <TextInput style={cm.input} value={birthday} onChangeText={setBirthday} placeholder="e.g. 06-15" placeholderTextColor={C.soft} />
+          <TextInput style={cm.input} value={birthday} onChangeText={setBirthday} placeholder="e.g. 06-15" placeholderTextColor={T.textMuted} />
           <Text style={cm.label}>STYLIST NOTES</Text>
-          <TextInput style={[cm.input,{height:100,textAlignVertical:'top'}]} value={notes} onChangeText={setNotes} multiline placeholder="Formulas, preferences, sensitivities…" placeholderTextColor={C.soft} />
+          <TextInput style={[cm.input,{height:100,textAlignVertical:'top'}]} value={notes} onChangeText={setNotes} multiline placeholder="Formulas, preferences, sensitivities…" placeholderTextColor={T.textMuted} />
         </ScrollView>
       </View>
     </Modal>
@@ -149,8 +151,8 @@ function ClientDetail({ visible, client, stats, bookings, onClose, onEdit }: { v
                       <Text style={cd.historySvc}>{svc||'Appointment'}</Text>
                       <Text style={cd.historyDate}>{dateStr}</Text>
                     </View>
-                    <View style={[cd.historyBadge,{backgroundColor:(stCol[st]||C.soft)+'20'}]}>
-                      <Text style={[cd.historyBadgeTxt,{color:stCol[st]||C.soft}]}>{st}</Text>
+                    <View style={[cd.historyBadge,{backgroundColor:(stCol[st]||T.textMuted)+'20'}]}>
+                      <Text style={[cd.historyBadgeTxt,{color:stCol[st]||T.textMuted}]}>{st}</Text>
                     </View>
                   </View>
                 );
@@ -192,6 +194,10 @@ function ClientRow({ item, onPress }: { item:any; onPress:()=>void }) {
 export default function ClientsScreen() {
   const insets = useSafeAreaInsets();
   const { token } = useAuth();
+  const T = useTheme();
+  const s  = React.useMemo(() => makeStyles(T), [T]);
+  const cm = React.useMemo(() => makeModalStyles(T), [T]);
+  const cd = React.useMemo(() => makeDetailStyles(T), [T]);
   const [loading, setLoading]   = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [clients, setClients]   = useState<any[]>([]);
@@ -275,7 +281,7 @@ export default function ClientsScreen() {
       <View style={s.searchRow}>
         <View style={s.searchBox}>
           <Text style={s.searchIcon}>🔍</Text>
-          <TextInput style={s.searchInput} value={search} onChangeText={setSearch} placeholder="Search by name or email…" placeholderTextColor={C.soft} autoCorrect={false} />
+          <TextInput style={s.searchInput} value={search} onChangeText={setSearch} placeholder="Search by name or email…" placeholderTextColor={T.textMuted} autoCorrect={false} />
           {!!search && <TouchableOpacity onPress={() => setSearch('')}><Text style={s.searchClear}>✕</Text></TouchableOpacity>}
         </View>
       </View>
@@ -318,14 +324,14 @@ export default function ClientsScreen() {
       )}
 
       {loading ? (
-        <ActivityIndicator style={{marginTop:60}} color={C.rose} size="large" />
+        <ActivityIndicator style={{marginTop:60}} color={T.rose} size="large" />
       ) : (
         <FlatList
           data={filteredClients}
           keyExtractor={(_,i) => String(i)}
           renderItem={({ item }) => <ClientRow item={item} onPress={() => openDetail(item)} />}
           contentContainerStyle={{ paddingBottom: 40 }}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(true); }} tintColor={C.rose} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(true); }} tintColor={T.rose} />}
           ItemSeparatorComponent={() => <View style={s.separator} />}
           ListEmptyComponent={
             <View style={s.empty}>
@@ -351,76 +357,76 @@ export default function ClientsScreen() {
 }
 
 // ── Styles ─────────────────────────────────────────────────────────────────
-const s = StyleSheet.create({
-  container:     { flex:1, backgroundColor:C.cream },
-  header:        { flexDirection:'row', justifyContent:'space-between', alignItems:'center', paddingHorizontal:20, paddingVertical:16, borderBottomWidth:1, borderBottomColor:C.border },
-  heading:       { fontSize:22, fontWeight:'900', color:C.charcoal, fontFamily:'Georgia' },
-  addBtn:        { backgroundColor:C.rose, borderRadius:999, paddingHorizontal:16, paddingVertical:8 },
-  addBtnTxt:     { color:C.white, fontWeight:'800', fontSize:14 },
+function makeStyles(T: AppTheme) { return StyleSheet.create({
+  container:     { flex:1, backgroundColor:T.bgBase },
+  header:        { flexDirection:'row', justifyContent:'space-between', alignItems:'center', paddingHorizontal:20, paddingVertical:16, borderBottomWidth:1, borderBottomColor:T.border },
+  heading:       { fontSize:22, fontWeight:'900', color:T.textPrimary, fontFamily:'Georgia' },
+  addBtn:        { backgroundColor:T.rose, borderRadius:999, paddingHorizontal:16, paddingVertical:8 },
+  addBtnTxt:     { color:T.white, fontWeight:'800', fontSize:14 },
   searchRow:     { paddingHorizontal:14, paddingTop:12, paddingBottom:4 },
-  searchBox:     { flexDirection:'row', alignItems:'center', backgroundColor:C.white, borderRadius:12, paddingHorizontal:12, gap:8, borderWidth:1, borderColor:C.border },
+  searchBox:     { flexDirection:'row', alignItems:'center', backgroundColor:T.bgCard, borderRadius:12, paddingHorizontal:12, gap:8, borderWidth:1, borderColor:T.border },
   searchIcon:    { fontSize:14 },
-  searchInput:   { flex:1, paddingVertical:11, fontSize:14, color:C.charcoal },
-  searchClear:   { fontSize:14, color:C.soft, padding:4 },
+  searchInput:   { flex:1, paddingVertical:11, fontSize:14, color:T.textPrimary },
+  searchClear:   { fontSize:14, color:T.textSec, padding:4 },
   filterScroll:  { flexGrow:0 },
   filterRow:     { flexDirection:'row', alignItems:'center', paddingHorizontal:14, paddingVertical:8, gap:8 },
-  filterChip:    { height:32, paddingHorizontal:14, borderRadius:999, backgroundColor:C.white, borderWidth:1, borderColor:C.border, alignItems:'center', justifyContent:'center' },
-  filterChipOn:  { backgroundColor:C.rose, borderColor:C.rose },
-  filterChipTxt: { fontSize:12, fontWeight:'600', color:C.soft },
-  filterChipTxtOn:{ color:C.white, fontWeight:'800' },
-  countTxt:      { fontSize:11, color:C.soft, paddingHorizontal:18, paddingBottom:6 },
+  filterChip:    { height:32, paddingHorizontal:14, borderRadius:999, backgroundColor:T.bgCard, borderWidth:1, borderColor:T.border, alignItems:'center', justifyContent:'center' },
+  filterChipOn:  { backgroundColor:T.rose, borderColor:T.rose },
+  filterChipTxt: { fontSize:12, fontWeight:'600', color:T.textSec },
+  filterChipTxtOn:{ color:T.white, fontWeight:'800' },
+  countTxt:      { fontSize:11, color:T.textSec, paddingHorizontal:18, paddingBottom:6 },
   bdayWrap:      { paddingLeft:14, paddingBottom:10 },
-  bdayTitle:     { fontSize:12, fontWeight:'800', color:C.charcoal, marginBottom:8 },
-  bdayCard:      { backgroundColor:C.white, borderWidth:1, borderColor:C.border, borderRadius:12, paddingHorizontal:14, paddingVertical:10, minWidth:120 },
-  bdayName:      { fontSize:13, fontWeight:'700', color:C.charcoal },
-  bdayWhen:      { fontSize:11, color:C.rose, fontWeight:'700', marginTop:2 },
-  row:           { flexDirection:'row', alignItems:'center', paddingHorizontal:16, paddingVertical:12, backgroundColor:C.white, gap:12 },
-  separator:     { height:1, backgroundColor:C.border, marginLeft:68 },
-  avatar:        { width:44, height:44, borderRadius:22, backgroundColor:C.pinkLight, alignItems:'center', justifyContent:'center' },
-  avatarTxt:     { fontSize:16, fontWeight:'800', color:C.rose },
-  name:          { fontSize:14, fontWeight:'700', color:C.charcoal },
-  sub:           { fontSize:12, color:C.soft, marginTop:2 },
-  chevron:       { fontSize:20, color:C.soft },
+  bdayTitle:     { fontSize:12, fontWeight:'800', color:T.textPrimary, marginBottom:8 },
+  bdayCard:      { backgroundColor:T.bgCard, borderWidth:1, borderColor:T.border, borderRadius:12, paddingHorizontal:14, paddingVertical:10, minWidth:120 },
+  bdayName:      { fontSize:13, fontWeight:'700', color:T.textPrimary },
+  bdayWhen:      { fontSize:11, color:T.rose, fontWeight:'700', marginTop:2 },
+  row:           { flexDirection:'row', alignItems:'center', paddingHorizontal:16, paddingVertical:12, backgroundColor:T.bgCard, gap:12 },
+  separator:     { height:1, backgroundColor:T.border, marginLeft:68 },
+  avatar:        { width:44, height:44, borderRadius:22, backgroundColor:T.bgElevated, alignItems:'center', justifyContent:'center' },
+  avatarTxt:     { fontSize:16, fontWeight:'800', color:T.rose },
+  name:          { fontSize:14, fontWeight:'700', color:T.textPrimary },
+  sub:           { fontSize:12, color:T.textSec, marginTop:2 },
+  chevron:       { fontSize:20, color:T.textSec },
   empty:         { paddingTop:60, alignItems:'center', gap:12 },
   emptyIcon:     { fontSize:40 },
-  emptyTxt:      { fontSize:14, color:C.soft, textAlign:'center' },
-});
+  emptyTxt:      { fontSize:14, color:T.textSec, textAlign:'center' },
+}); }
 
-const cm = StyleSheet.create({
-  container: { flex:1, backgroundColor:C.cream },
-  header:    { flexDirection:'row', justifyContent:'space-between', alignItems:'center', padding:18, borderBottomWidth:1, borderBottomColor:C.border },
-  title:     { fontSize:16, fontWeight:'800', color:C.charcoal },
-  cancelTxt: { fontSize:15, color:C.soft, fontWeight:'600' },
-  saveTxt:   { fontSize:15, color:C.rose, fontWeight:'800' },
+function makeModalStyles(T: AppTheme) { return StyleSheet.create({
+  container: { flex:1, backgroundColor:T.bgBase },
+  header:    { flexDirection:'row', justifyContent:'space-between', alignItems:'center', padding:18, borderBottomWidth:1, borderBottomColor:T.border },
+  title:     { fontSize:16, fontWeight:'800', color:T.textPrimary },
+  cancelTxt: { fontSize:15, color:T.textSec, fontWeight:'600' },
+  saveTxt:   { fontSize:15, color:T.rose, fontWeight:'800' },
   scroll:    { padding:18, gap:2 },
-  label:     { fontSize:10, fontWeight:'800', letterSpacing:1, color:C.soft, textTransform:'uppercase', marginTop:14, marginBottom:6 },
-  input:     { backgroundColor:C.white, borderRadius:12, padding:13, fontSize:14, color:C.charcoal, borderWidth:1, borderColor:C.border },
-});
+  label:     { fontSize:10, fontWeight:'800', letterSpacing:1, color:T.textSec, textTransform:'uppercase', marginTop:14, marginBottom:6 },
+  input:     { backgroundColor:T.bgCard, borderRadius:12, padding:13, fontSize:14, color:T.textPrimary, borderWidth:1, borderColor:T.border },
+}); }
 
-const cd = StyleSheet.create({
-  profileSection:{ alignItems:'center', paddingVertical:24, borderBottomWidth:1, borderBottomColor:C.border, paddingHorizontal:20 },
-  avatar:        { width:72, height:72, borderRadius:36, backgroundColor:C.pinkLight, alignItems:'center', justifyContent:'center', marginBottom:12 },
-  avatarTxt:     { fontSize:26, fontWeight:'900', color:C.rose },
-  name:          { fontSize:20, fontWeight:'900', color:C.charcoal, fontFamily:'Georgia', marginBottom:8 },
-  meta:          { fontSize:13, color:C.soft, marginTop:4 },
-  tagsRow:       { flexDirection:'row', flexWrap:'wrap', gap:8, padding:16, borderBottomWidth:1, borderBottomColor:C.border },
-  tag:           { paddingHorizontal:12, paddingVertical:5, borderRadius:999, backgroundColor:C.pinkLight, borderWidth:1, borderColor:C.rose+'30' },
-  tagTxt:        { fontSize:11, fontWeight:'700', color:C.rose },
+function makeDetailStyles(T: AppTheme) { return StyleSheet.create({
+  profileSection:{ alignItems:'center', paddingVertical:24, borderBottomWidth:1, borderBottomColor:T.border, paddingHorizontal:20 },
+  avatar:        { width:72, height:72, borderRadius:36, backgroundColor:T.bgElevated, alignItems:'center', justifyContent:'center', marginBottom:12 },
+  avatarTxt:     { fontSize:26, fontWeight:'900', color:T.rose },
+  name:          { fontSize:20, fontWeight:'900', color:T.textPrimary, fontFamily:'Georgia', marginBottom:8 },
+  meta:          { fontSize:13, color:T.textSec, marginTop:4 },
+  tagsRow:       { flexDirection:'row', flexWrap:'wrap', gap:8, padding:16, borderBottomWidth:1, borderBottomColor:T.border },
+  tag:           { paddingHorizontal:12, paddingVertical:5, borderRadius:999, backgroundColor:T.bgElevated, borderWidth:1, borderColor:T.rose+'30' },
+  tagTxt:        { fontSize:11, fontWeight:'700', color:T.rose },
   statsGrid:     { flexDirection:'row', padding:16, gap:1 },
-  statCell:      { flex:1, alignItems:'center', padding:14, backgroundColor:C.white, borderWidth:1, borderColor:C.border, margin:1, borderRadius:12 },
-  statValue:     { fontSize:22, fontWeight:'900', color:C.charcoal },
-  statLabel:     { fontSize:10, fontWeight:'600', color:C.soft, marginTop:4, textAlign:'center' },
-  topService:    { margin:16, backgroundColor:C.white, borderRadius:14, padding:16, borderWidth:1, borderColor:C.border },
-  topServiceLabel:{ fontSize:10, fontWeight:'800', color:C.soft, textTransform:'uppercase', letterSpacing:0.8, marginBottom:6 },
-  topServiceName: { fontSize:16, fontWeight:'800', color:C.charcoal },
-  notesSection:  { margin:16, backgroundColor:C.cream, borderRadius:14, padding:16, borderWidth:1, borderColor:C.border },
-  notesLabel:    { fontSize:10, fontWeight:'800', color:C.soft, textTransform:'uppercase', letterSpacing:0.8, marginBottom:8 },
-  notesBody:     { fontSize:13, color:C.charcoal, lineHeight:20 },
+  statCell:      { flex:1, alignItems:'center', padding:14, backgroundColor:T.bgCard, borderWidth:1, borderColor:T.border, margin:1, borderRadius:12 },
+  statValue:     { fontSize:22, fontWeight:'900', color:T.textPrimary },
+  statLabel:     { fontSize:10, fontWeight:'600', color:T.textSec, marginTop:4, textAlign:'center' },
+  topService:    { margin:16, backgroundColor:T.bgCard, borderRadius:14, padding:16, borderWidth:1, borderColor:T.border },
+  topServiceLabel:{ fontSize:10, fontWeight:'800', color:T.textSec, textTransform:'uppercase', letterSpacing:0.8, marginBottom:6 },
+  topServiceName: { fontSize:16, fontWeight:'800', color:T.textPrimary },
+  notesSection:  { margin:16, backgroundColor:T.bgElevated, borderRadius:14, padding:16, borderWidth:1, borderColor:T.border },
+  notesLabel:    { fontSize:10, fontWeight:'800', color:T.textSec, textTransform:'uppercase', letterSpacing:0.8, marginBottom:8 },
+  notesBody:     { fontSize:13, color:T.textPrimary, lineHeight:20 },
   historySection:{ margin:16 },
-  historyTitle:  { fontSize:10, fontWeight:'800', color:C.soft, textTransform:'uppercase', letterSpacing:0.8, marginBottom:10 },
-  historyRow:    { flexDirection:'row', alignItems:'center', paddingVertical:12, borderBottomWidth:1, borderBottomColor:C.border },
-  historySvc:    { fontSize:13, fontWeight:'700', color:C.charcoal },
-  historyDate:   { fontSize:11, color:C.soft, marginTop:2 },
+  historyTitle:  { fontSize:10, fontWeight:'800', color:T.textSec, textTransform:'uppercase', letterSpacing:0.8, marginBottom:10 },
+  historyRow:    { flexDirection:'row', alignItems:'center', paddingVertical:12, borderBottomWidth:1, borderBottomColor:T.border },
+  historySvc:    { fontSize:13, fontWeight:'700', color:T.textPrimary },
+  historyDate:   { fontSize:11, color:T.textSec, marginTop:2 },
   historyBadge:  { paddingHorizontal:10, paddingVertical:4, borderRadius:999 },
   historyBadgeTxt:{ fontSize:10, fontWeight:'700' },
-});
+}); }

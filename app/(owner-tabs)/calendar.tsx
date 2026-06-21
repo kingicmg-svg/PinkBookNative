@@ -10,6 +10,8 @@ import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '../hooks/useAuth';
 import { OwnerApi } from '../services/ApiService';
 import Colors from '../../constants/Colors';
+import { useTheme } from '../hooks/useTheme';
+import type { AppTheme } from '../../constants/Colors';
 
 const C = Colors;
 const STATUS_COLOR: Record<string,string> = {
@@ -97,7 +99,7 @@ function BeforeAfterCapture({ booking, token }: { booking: any; token: string | 
   return (
     <View style={dm.card}>
       <Text style={dm.sectionHeader}>BEFORE & AFTER</Text>
-      <Text style={[dm.val, { textAlign: 'left', marginTop: 2, marginBottom: 10, color: C.soft, fontSize: 12 }]}>
+      <Text style={[dm.val, { textAlign: 'left', marginTop: 2, marginBottom: 10, color: T.textSec, fontSize: 12 }]}>
         Capture before and after photos to showcase this transformation on your booking page.
       </Text>
       <View style={{ flexDirection: 'row', gap: 10 }}>
@@ -107,7 +109,7 @@ function BeforeAfterCapture({ booking, token }: { booking: any; token: string | 
           onPress={() => pickAndUpload('before')}
         >
           {busy === 'before'
-            ? <ActivityIndicator color={C.rose} />
+            ? <ActivityIndicator color={T.rose} />
             : <Text style={[dm.actionBtnTxt, { color: beforeId ? C.success : C.rose }]}>{beforeId ? '✓ Before added' : '📷 Add Before'}</Text>}
         </TouchableOpacity>
         <TouchableOpacity
@@ -116,7 +118,7 @@ function BeforeAfterCapture({ booking, token }: { booking: any; token: string | 
           onPress={() => pickAndUpload('after')}
         >
           {busy === 'after'
-            ? <ActivityIndicator color={C.rose} />
+            ? <ActivityIndicator color={T.rose} />
             : <Text style={[dm.actionBtnTxt, { color: afterDone ? C.success : C.rose }]}>{afterDone ? '✓ After added' : '📷 Add After'}</Text>}
         </TouchableOpacity>
       </View>
@@ -128,8 +130,10 @@ function BeforeAfterCapture({ booking, token }: { booking: any; token: string | 
 function BookingDetailModal({ booking, visible, onClose, onConfirm, onDeny, onStatusChange, token }:
   { booking: any; visible: boolean; onClose: ()=>void; onConfirm: ()=>void; onDeny: ()=>void; onStatusChange: (s:string)=>void; token: string | null }) {
   if (!booking) return null;
+  const T = useTheme();
+  const dm = React.useMemo(() => makeDetailModalStyles(T), [T]);
   const status    = booking.status || 'pending';
-  const statusCol = STATUS_COLOR[status] || C.soft;
+  const statusCol = STATUS_COLOR[status] || T.textSec;
   const isHair    = !!(booking.hairTexture || booking.hairType || booking.hairColors?.length);
   const hasAddons = booking.addons?.length > 0;
   const hasIntake = booking.intakeAnswers && Object.keys(booking.intakeAnswers).length > 0;
@@ -241,32 +245,32 @@ function BookingDetailModal({ booking, visible, onClose, onConfirm, onDeny, onSt
   );
 }
 
-const dm = StyleSheet.create({
-  container:     { flex: 1, backgroundColor: C.cream },
-  topBar:        { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: C.border },
-  closeBtn:      { color: C.soft, fontSize: 18, fontWeight: '600', width: 40 },
-  title:         { fontSize: 16, fontWeight: '800', color: C.charcoal },
+function makeDetailModalStyles(T: AppTheme) { return StyleSheet.create({
+  container:     { flex: 1, backgroundColor: T.bgBase },
+  topBar:        { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: T.border },
+  closeBtn:      { color: T.textSec, fontSize: 18, fontWeight: '600', width: 40 },
+  title:         { fontSize: 16, fontWeight: '800', color: T.textPrimary },
   statusPill:    { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999 },
   statusPillTxt: { fontSize: 11, fontWeight: '800' },
   scroll:        { padding: 20, gap: 14 },
-  clientName:    { fontSize: 22, fontWeight: '900', color: C.charcoal, fontFamily: 'Georgia' },
-  contactLine:   { fontSize: 13, color: C.soft, fontWeight: '600', marginTop: 2 },
-  card:          { backgroundColor: C.white, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: C.border, gap: 2 },
-  sectionHeader: { fontSize: 10, fontWeight: '800', color: C.soft, letterSpacing: 1.5, marginBottom: 8 },
-  row:           { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: C.border },
-  key:           { fontSize: 13, color: C.soft, fontWeight: '600', flex: 0.45 },
-  val:           { fontSize: 13, color: C.charcoal, fontWeight: '600', textAlign: 'right', flex: 0.55 },
-  listItem:      { fontSize: 13, color: C.charcoal, fontWeight: '600', paddingVertical: 4 },
+  clientName:    { fontSize: 22, fontWeight: '900', color: T.textPrimary, fontFamily: 'Georgia' },
+  contactLine:   { fontSize: 13, color: T.textSec, fontWeight: '600', marginTop: 2 },
+  card:          { backgroundColor: T.bgCard, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: T.border, gap: 2 },
+  sectionHeader: { fontSize: 10, fontWeight: '800', color: T.textSec, letterSpacing: 1.5, marginBottom: 8 },
+  row:           { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: T.border },
+  key:           { fontSize: 13, color: T.textSec, fontWeight: '600', flex: 0.45 },
+  val:           { fontSize: 13, color: T.textPrimary, fontWeight: '600', textAlign: 'right', flex: 0.55 },
+  listItem:      { fontSize: 13, color: T.textPrimary, fontWeight: '600', paddingVertical: 4 },
   actionBtn:     { borderRadius: 12, padding: 14, borderWidth: 1, alignItems: 'center' },
   actionBtnTxt:  { fontSize: 14, fontWeight: '800' },
-});
+}); }
 
 // ── Booking Card ───────────────────────────────────────────────────────────
 function BookingCard({ item, onPress, onConfirm, onDeny }: { item:any; onPress:()=>void; onConfirm:(id:string)=>void; onDeny:(id:string)=>void }) {
   const clientName = item.clientName || item.client_name || item.contactName || item.contactName || '—';
   const service    = item.serviceName || item.service_name || item.service || '';
   const status     = item.status || 'pending';
-  const statusCol  = STATUS_COLOR[status] || C.soft;
+  const statusCol  = STATUS_COLOR[status] || T.textSec;
   const time       = item.appointmentTime || item.appointment_time || item.time || '';
   const price      = item.price != null ? fmtCurrency(parseFloat(item.price)) : '';
   const duration   = item.duration ? `${item.duration}m` : '';
@@ -315,8 +319,8 @@ function DateDay({ date, selected, hasBooking, onPress }: { date:Date; selected:
   const num = date.getDate();
   return (
     <TouchableOpacity style={[s.dateDay, isToday && s.dateDayToday, selected && !isToday && s.dateDaySelected]} onPress={onPress}>
-      <Text style={[s.dateDayLabel, (isToday||selected) && { color: isToday ? C.white : C.rose }]}>{day}</Text>
-      <Text style={[s.dateDayNum, (isToday||selected) && { color: isToday ? C.white : C.rose }]}>{num}</Text>
+      <Text style={[s.dateDayLabel, (isToday||selected) && { color: isToday ? T.white : T.rose }]}>{day}</Text>
+      <Text style={[s.dateDayNum, (isToday||selected) && { color: isToday ? T.white : T.rose }]}>{num}</Text>
       {hasBooking && <View style={[s.dateDot, isToday && { backgroundColor: 'rgba(255,255,255,0.8)' }]} />}
     </TouchableOpacity>
   );
@@ -406,7 +410,7 @@ function AddBookingModal({ visible, clients, settings, onClose, onSave }:
         <ScrollView contentContainerStyle={m.scroll} keyboardShouldPersistTaps="handled">
           {/* Client */}
           <Text style={m.label}>CLIENT</Text>
-          <TextInput style={m.input} value={clientSearch} onChangeText={t => { setClientSearch(t); if (!t) setSelectedClient(null); }} placeholder="Search client by name or email…" placeholderTextColor={C.soft} />
+          <TextInput style={m.input} value={clientSearch} onChangeText={t => { setClientSearch(t); if (!t) setSelectedClient(null); }} placeholder="Search client by name or email…" placeholderTextColor={T.textMuted} />
           {!!clientSearch && !selectedClient && filteredClients.map(c => (
             <TouchableOpacity key={c.id} style={m.option} onPress={() => {
               setSelectedClient(c);
@@ -420,14 +424,14 @@ function AddBookingModal({ visible, clients, settings, onClose, onSave }:
           ))}
           {!!selectedClient && (
             <View style={m.autofillRow}>
-              <TextInput style={[m.input, m.halfInput]} value={clientEmail} onChangeText={setClientEmail} placeholder="Email" placeholderTextColor={C.soft} keyboardType="email-address" />
-              <TextInput style={[m.input, m.halfInput]} value={clientPhone} onChangeText={setClientPhone} placeholder="Phone" placeholderTextColor={C.soft} keyboardType="phone-pad" />
+              <TextInput style={[m.input, m.halfInput]} value={clientEmail} onChangeText={setClientEmail} placeholder="Email" placeholderTextColor={T.textMuted} keyboardType="email-address" />
+              <TextInput style={[m.input, m.halfInput]} value={clientPhone} onChangeText={setClientPhone} placeholder="Phone" placeholderTextColor={T.textMuted} keyboardType="phone-pad" />
             </View>
           )}
 
           {/* Service */}
           <Text style={m.label}>SERVICE</Text>
-          <TextInput style={m.input} value={serviceSearch} onChangeText={t => { setServiceSearch(t); if (!t) setSelectedService(null); }} placeholder="Search service…" placeholderTextColor={C.soft} />
+          <TextInput style={m.input} value={serviceSearch} onChangeText={t => { setServiceSearch(t); if (!t) setSelectedService(null); }} placeholder="Search service…" placeholderTextColor={T.textMuted} />
           {!!serviceSearch && !selectedService && filteredServices.map((sv: any, i: number) => (
             <TouchableOpacity key={i} style={m.option} onPress={() => {
               setSelectedService(sv);
@@ -445,17 +449,17 @@ function AddBookingModal({ visible, clients, settings, onClose, onSave }:
             <>
               <Text style={m.label}>PRICE OVERRIDE (optional)</Text>
               <View style={m.autofillRow}>
-                <TextInput style={[m.input, m.halfInput]} value={customPrice} onChangeText={setCustomPrice} placeholder={`Default: $${selectedService.price ?? 0}`} placeholderTextColor={C.soft} keyboardType="decimal-pad" />
-                <TextInput style={[m.input, m.halfInput]} value={customDeposit} onChangeText={setCustomDeposit} placeholder={`Deposit: $${selectedService.deposit ?? 0}`} placeholderTextColor={C.soft} keyboardType="decimal-pad" />
+                <TextInput style={[m.input, m.halfInput]} value={customPrice} onChangeText={setCustomPrice} placeholder={`Default: $${selectedService.price ?? 0}`} placeholderTextColor={T.textMuted} keyboardType="decimal-pad" />
+                <TextInput style={[m.input, m.halfInput]} value={customDeposit} onChangeText={setCustomDeposit} placeholder={`Deposit: $${selectedService.deposit ?? 0}`} placeholderTextColor={T.textMuted} keyboardType="decimal-pad" />
               </View>
             </>
           )}
 
           {/* Date / Time */}
           <Text style={m.label}>DATE</Text>
-          <TextInput style={m.input} value={date} onChangeText={setDate} placeholder="YYYY-MM-DD" placeholderTextColor={C.soft} />
+          <TextInput style={m.input} value={date} onChangeText={setDate} placeholder="YYYY-MM-DD" placeholderTextColor={T.textMuted} />
           <Text style={m.label}>TIME</Text>
-          <TextInput style={m.input} value={time} onChangeText={setTime} placeholder="10:00 AM" placeholderTextColor={C.soft} />
+          <TextInput style={m.input} value={time} onChangeText={setTime} placeholder="10:00 AM" placeholderTextColor={T.textMuted} />
 
           {/* Payment status */}
           <Text style={m.label}>PAYMENT STATUS</Text>
@@ -469,11 +473,11 @@ function AddBookingModal({ visible, clients, settings, onClose, onSave }:
 
           {/* Note */}
           <Text style={m.label}>NOTE (OPTIONAL)</Text>
-          <TextInput style={[m.input, { height: 72, textAlignVertical: 'top' }]} value={note} onChangeText={setNote} multiline placeholder="Internal note…" placeholderTextColor={C.soft} />
+          <TextInput style={[m.input, { height: 72, textAlignVertical: 'top' }]} value={note} onChangeText={setNote} multiline placeholder="Internal note…" placeholderTextColor={T.textMuted} />
 
           {/* Send email */}
           <TouchableOpacity style={m.toggleRow} onPress={() => setSendEmail(v => !v)} activeOpacity={0.8}>
-            <View style={[m.toggleBox, sendEmail && { backgroundColor: C.rose, borderColor: C.rose }]}>
+            <View style={[m.toggleBox, sendEmail && { backgroundColor: T.rose, borderColor: T.rose }]}>
               {sendEmail && <Text style={{ color: '#fff', fontSize: 11, fontWeight: '800' }}>✓</Text>}
             </View>
             <Text style={m.toggleLabel}>Send confirmation email to client</Text>
@@ -495,6 +499,9 @@ export default function CalendarScreen() {
   const insets   = useSafeAreaInsets();
   const router   = useRouter();
   const { token } = useAuth();
+  const T = useTheme();
+  const s = React.useMemo(() => makeStyles(T), [T]);
+  const m = React.useMemo(() => makeModalStyles(T), [T]);
 
   const [loading, setLoading]     = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -657,11 +664,11 @@ export default function CalendarScreen() {
 
       <ScrollView
         contentContainerStyle={s.scroll}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(true); }} tintColor={C.rose} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(true); }} tintColor={T.rose} />}
       >
         {/* Stat cards */}
         <View style={s.statsRow}>
-          <StatCard icon="📅" label="Today" value={String(todayBookings.length)} color={C.rose} />
+          <StatCard icon="📅" label="Today" value={String(todayBookings.length)} color={T.rose} />
           <StatCard icon="💰" label="This Week" value={fmtCurrency(weekRevenue)} color="#6366F1" />
           <StatCard icon="⏳" label="Pending" value={String(pendingBookings.length)} color="#F59E0B"
             onPress={() => { setFilter('Pending'); }} />
@@ -717,7 +724,7 @@ export default function CalendarScreen() {
 
         {/* Bookings list */}
         {loading ? (
-          <ActivityIndicator color={C.rose} size="large" style={{ marginTop: 40 }} />
+          <ActivityIndicator color={T.rose} size="large" style={{ marginTop: 40 }} />
         ) : filteredBookings.length === 0 ? (
           <View style={s.empty}>
             <Text style={s.emptyIcon}>📅</Text>
@@ -744,12 +751,12 @@ export default function CalendarScreen() {
               <Text style={s.sectionTitle}>Upcoming This Week</Text>
               {upcoming.map((b,i)=>(
                 <View key={b.id||i} style={s.upcomingRow}>
-                  <View style={[s.upcomingDot,{backgroundColor:STATUS_COLOR[b.status]||C.soft}]}/>
+                  <View style={[s.upcomingDot,{backgroundColor:STATUS_COLOR[b.status]||T.textSec}]}/>
                   <View style={{flex:1}}>
                     <Text style={s.upcomingClient}>{b.clientName||b.client_name||'Client'}</Text>
                     <Text style={s.upcomingMeta}>{b.serviceName||b.service_name||''} · {(() => { try { return new Date(b.appointmentTime||b.appointment_time||b.time).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}); } catch { return ''; } })()}</Text>
                   </View>
-                  <Text style={[s.upcomingStatus,{color:STATUS_COLOR[b.status]||C.soft}]}>{STATUS_LABEL[b.status]||b.status}</Text>
+                  <Text style={[s.upcomingStatus,{color:STATUS_COLOR[b.status]||T.textSec}]}>{STATUS_LABEL[b.status]||b.status}</Text>
                 </View>
               ))}
             </View>
@@ -774,94 +781,93 @@ export default function CalendarScreen() {
 }
 
 // ── Styles ─────────────────────────────────────────────────────────────────
-const s = StyleSheet.create({
-  container:      { flex:1, backgroundColor: C.cream },
-  header:         { flexDirection:'row', alignItems:'center', justifyContent:'space-between', paddingHorizontal:20, paddingVertical:16, borderBottomWidth:1, borderBottomColor:C.border, backgroundColor:C.cream },
-  heading:        { fontSize:24, fontWeight:'900', color:C.charcoal, fontFamily:'Georgia' },
-  subheading:     { fontSize:12, color:C.soft, marginTop:2 },
-  addBtn:         { backgroundColor:C.rose, borderRadius:999, paddingHorizontal:16, paddingVertical:9 },
-  addBtnTxt:      { color:C.white, fontWeight:'800', fontSize:14 },
+function makeStyles(T: AppTheme) { return StyleSheet.create({
+  container:      { flex:1, backgroundColor: T.bgBase },
+  header:         { flexDirection:'row', alignItems:'center', justifyContent:'space-between', paddingHorizontal:20, paddingVertical:16, borderBottomWidth:1, borderBottomColor:T.border, backgroundColor:T.bgBase },
+  heading:        { fontSize:24, fontWeight:'900', color:T.textPrimary, fontFamily:'Georgia' },
+  subheading:     { fontSize:12, color:T.textSec, marginTop:2 },
+  addBtn:         { backgroundColor:T.rose, borderRadius:999, paddingHorizontal:16, paddingVertical:9 },
+  addBtnTxt:      { color:T.white, fontWeight:'800', fontSize:14 },
   scroll:         { paddingBottom:40 },
   statsRow:       { flexDirection:'row', padding:14, gap:10 },
   gateBanner:     { marginHorizontal:14, marginBottom:10, backgroundColor:'#FEF3C7', borderRadius:14, padding:14, borderWidth:1, borderColor:'#FCD34D' },
   gateBannerTitle: { fontSize:14, fontWeight:'800', color:'#92400E', marginBottom:4 },
   gateBannerSub:  { fontSize:12, color:'#92400E', lineHeight:17 },
-  statCard:       { flex:1, backgroundColor:C.white, borderRadius:14, padding:12, alignItems:'center', shadowColor:C.charcoal, shadowOffset:{width:0,height:2}, shadowOpacity:0.06, shadowRadius:8, elevation:2 },
+  statCard:       { flex:1, backgroundColor:T.bgCard, borderRadius:14, padding:12, alignItems:'center' },
   statIcon:       { fontSize:18, marginBottom:4 },
   statValue:      { fontSize:18, fontWeight:'900' },
-  statLabel:      { fontSize:10, color:C.soft, fontWeight:'600', marginTop:2, textAlign:'center' },
-  stripWrapper:   { backgroundColor:C.white, marginHorizontal:14, borderRadius:16, padding:16, borderWidth:1, borderColor:C.border, marginBottom:8 },
+  statLabel:      { fontSize:10, color:T.textSec, fontWeight:'600', marginTop:2, textAlign:'center' },
+  stripWrapper:   { backgroundColor:T.bgCard, marginHorizontal:14, borderRadius:16, padding:16, borderWidth:1, borderColor:T.border, marginBottom:8 },
   stripHeader:    { flexDirection:'row', justifyContent:'space-between', alignItems:'center', marginBottom:12 },
-  stripMonth:     { fontSize:14, fontWeight:'800', color:C.charcoal },
-  stripNav:       { paddingHorizontal:10, paddingVertical:6, borderRadius:10, borderWidth:1, borderColor:C.border },
-  stripNavTxt:    { fontSize:16, color:C.rose, fontWeight:'700' },
+  stripMonth:     { fontSize:14, fontWeight:'800', color:T.textPrimary },
+  stripNav:       { paddingHorizontal:10, paddingVertical:6, borderRadius:10, borderWidth:1, borderColor:T.border },
+  stripNavTxt:    { fontSize:16, color:T.rose, fontWeight:'700' },
   stripRow:       { flexDirection:'row', justifyContent:'space-between' },
   dateDay:        { flex:1, alignItems:'center', paddingVertical:8, borderRadius:12 },
-  dateDayToday:   { backgroundColor:C.rose },
-  dateDaySelected:{ backgroundColor:C.pinkLight, borderWidth:1.5, borderColor:C.rose },
-  dateDayLabel:   { fontSize:9, fontWeight:'700', color:C.soft, textTransform:'uppercase', marginBottom:3 },
-  dateDayNum:     { fontSize:15, fontWeight:'800', color:C.charcoal },
-  dateDot:        { width:4, height:4, borderRadius:2, backgroundColor:C.rose, marginTop:3 },
+  dateDayToday:   { backgroundColor:T.rose },
+  dateDaySelected:{ backgroundColor:T.bgElevated, borderWidth:1.5, borderColor:T.rose },
+  dateDayLabel:   { fontSize:9, fontWeight:'700', color:T.textSec, textTransform:'uppercase', marginBottom:3 },
+  dateDayNum:     { fontSize:15, fontWeight:'800', color:T.textPrimary },
+  dateDot:        { width:4, height:4, borderRadius:2, backgroundColor:T.rose, marginTop:3 },
   filterRow:      { paddingHorizontal:14, paddingVertical:10, gap:8 },
-  filterTab:      { paddingHorizontal:14, paddingVertical:7, borderRadius:999, backgroundColor:C.white, borderWidth:1, borderColor:C.border },
-  filterTabOn:    { backgroundColor:C.rose, borderColor:C.rose },
-  filterTabTxt:   { fontSize:12, fontWeight:'600', color:C.soft },
-  filterTabTxtOn: { color:C.white, fontWeight:'800' },
-  filterBadge:    { backgroundColor:C.white, borderRadius:999, paddingHorizontal:5, paddingVertical:1, marginLeft:4 },
-  filterBadgeTxt: { fontSize:9, fontWeight:'800', color:C.rose },
+  filterTab:      { paddingHorizontal:14, paddingVertical:7, borderRadius:999, backgroundColor:T.bgCard, borderWidth:1, borderColor:T.border },
+  filterTabOn:    { backgroundColor:T.rose, borderColor:T.rose },
+  filterTabTxt:   { fontSize:12, fontWeight:'600', color:T.textSec },
+  filterTabTxtOn: { color:T.white, fontWeight:'800' },
+  filterBadge:    { backgroundColor:T.bgElevated, borderRadius:999, paddingHorizontal:5, paddingVertical:1, marginLeft:4 },
+  filterBadgeTxt: { fontSize:9, fontWeight:'800', color:T.rose },
   dateHeading:    { flexDirection:'row', justifyContent:'space-between', alignItems:'center', paddingHorizontal:16, paddingVertical:10 },
-  dateHeadingTxt: { fontSize:13, fontWeight:'700', color:C.charcoal },
-  dateHeadingCount:{ fontSize:12, color:C.soft },
-  bookCard:       { flexDirection:'row', backgroundColor:C.white, marginHorizontal:14, marginBottom:10, borderRadius:14, overflow:'hidden', shadowColor:C.charcoal, shadowOffset:{width:0,height:1}, shadowOpacity:0.06, shadowRadius:6, elevation:1 },
+  dateHeadingTxt: { fontSize:13, fontWeight:'700', color:T.textPrimary },
+  dateHeadingCount:{ fontSize:12, color:T.textSec },
+  bookCard:       { flexDirection:'row', backgroundColor:T.bgCard, marginHorizontal:14, marginBottom:10, borderRadius:14, overflow:'hidden' },
   bookBar:        { width:4 },
   bookBody:       { flex:1, padding:14 },
   bookTop:        { flexDirection:'row', alignItems:'flex-start' },
-  bookTime:       { fontSize:11, fontWeight:'700', color:C.rose, textTransform:'uppercase', letterSpacing:0.5, marginBottom:3 },
-  bookClient:     { fontSize:15, fontWeight:'700', color:C.charcoal },
-  bookService:    { fontSize:12, color:C.soft, marginTop:2 },
-  bookPrice:      { fontSize:12, fontWeight:'700', color:C.gold, marginTop:4 },
+  bookTime:       { fontSize:11, fontWeight:'700', color:T.rose, textTransform:'uppercase', letterSpacing:0.5, marginBottom:3 },
+  bookClient:     { fontSize:15, fontWeight:'700', color:T.textPrimary },
+  bookService:    { fontSize:12, color:T.textSec, marginTop:2 },
+  bookPrice:      { fontSize:12, fontWeight:'700', color:T.gold, marginTop:4 },
   statusPill:     { paddingHorizontal:8, paddingVertical:3, borderRadius:999 },
   statusPillTxt:  { fontSize:10, fontWeight:'700' },
   bookActions:    { flexDirection:'row', gap:8, marginTop:12 },
   confirmBtn:     { flex:1, borderRadius:999, paddingVertical:8, alignItems:'center', backgroundColor:'rgba(26,158,74,0.1)', borderWidth:1, borderColor:'rgba(26,158,74,0.3)' },
-  confirmBtnTxt:  { fontSize:12, fontWeight:'800', color:C.success },
+  confirmBtnTxt:  { fontSize:12, fontWeight:'800', color:Colors.success },
   denyBtn:        { flex:1, borderRadius:999, paddingVertical:8, alignItems:'center', backgroundColor:'rgba(239,68,68,0.08)', borderWidth:1, borderColor:'rgba(239,68,68,0.25)' },
   denyBtnTxt:     { fontSize:12, fontWeight:'800', color:'#EF4444' },
   empty:          { alignItems:'center', paddingVertical:48 },
   emptyIcon:      { fontSize:40, marginBottom:12 },
-  emptyTxt:       { fontSize:14, color:C.soft, textAlign:'center' },
-  upcomingSection:{ margin:14, backgroundColor:C.white, borderRadius:14, borderWidth:1, borderColor:C.border, padding:14 },
-  sectionTitle:   { fontSize:12, fontWeight:'800', color:C.charcoal, marginBottom:10, textTransform:'uppercase', letterSpacing:0.5 },
-  upcomingRow:    { flexDirection:'row', alignItems:'center', paddingVertical:8, borderBottomWidth:1, borderBottomColor:C.border, gap:10 },
+  emptyTxt:       { fontSize:14, color:T.textSec, textAlign:'center' },
+  upcomingSection:{ margin:14, backgroundColor:T.bgCard, borderRadius:14, borderWidth:1, borderColor:T.border, padding:14 },
+  sectionTitle:   { fontSize:12, fontWeight:'800', color:T.textPrimary, marginBottom:10, textTransform:'uppercase', letterSpacing:0.5 },
+  upcomingRow:    { flexDirection:'row', alignItems:'center', paddingVertical:8, borderBottomWidth:1, borderBottomColor:T.border, gap:10 },
   upcomingDot:    { width:8, height:8, borderRadius:4 },
-  upcomingClient: { fontSize:13, fontWeight:'700', color:C.charcoal },
-  upcomingMeta:   { fontSize:11, color:C.soft, marginTop:2 },
+  upcomingClient: { fontSize:13, fontWeight:'700', color:T.textPrimary },
+  upcomingMeta:   { fontSize:11, color:T.textSec, marginTop:2 },
   upcomingStatus: { fontSize:11, fontWeight:'700' },
-});
+}); }
 
-// ── Add Modal Styles ───────────────────────────────────────────────────────
-const m = StyleSheet.create({
-  container:   { flex:1, backgroundColor:C.cream },
-  header:      { flexDirection:'row', justifyContent:'space-between', alignItems:'center', padding:20, borderBottomWidth:1, borderBottomColor:C.border },
-  title:       { fontSize:18, fontWeight:'900', color:C.charcoal, fontFamily:'Georgia' },
-  cancel:      { color:C.rose, fontWeight:'700', fontSize:15 },
+function makeModalStyles(T: AppTheme) { return StyleSheet.create({
+  container:   { flex:1, backgroundColor:T.bgBase },
+  header:      { flexDirection:'row', justifyContent:'space-between', alignItems:'center', padding:20, borderBottomWidth:1, borderBottomColor:T.border },
+  title:       { fontSize:18, fontWeight:'900', color:T.textPrimary, fontFamily:'Georgia' },
+  cancel:      { color:T.rose, fontWeight:'700', fontSize:15 },
   scroll:      { padding:20, gap:4 },
-  label:       { fontSize:10, fontWeight:'800', letterSpacing:1, color:C.soft, textTransform:'uppercase', marginTop:14, marginBottom:6 },
-  input:       { backgroundColor:C.white, borderRadius:12, padding:13, fontSize:14, color:C.charcoal, borderWidth:1, borderColor:C.border },
-  option:      { backgroundColor:C.white, borderRadius:10, padding:12, marginBottom:4, borderWidth:1, borderColor:C.border },
-  optionOn:    { borderColor:C.rose, backgroundColor:C.pinkLight },
-  optionTxt:   { fontSize:13, fontWeight:'700', color:C.charcoal },
-  optionSub:   { fontSize:11, color:C.soft, marginTop:2 },
+  label:       { fontSize:10, fontWeight:'800', letterSpacing:1, color:T.textSec, textTransform:'uppercase', marginTop:14, marginBottom:6 },
+  input:       { backgroundColor:T.bgCard, borderRadius:12, padding:13, fontSize:14, color:T.textPrimary, borderWidth:1, borderColor:T.border },
+  option:      { backgroundColor:T.bgCard, borderRadius:10, padding:12, marginBottom:4, borderWidth:1, borderColor:T.border },
+  optionOn:    { borderColor:T.rose, backgroundColor:T.bgElevated },
+  optionTxt:   { fontSize:13, fontWeight:'700', color:T.textPrimary },
+  optionSub:   { fontSize:11, color:T.textSec, marginTop:2 },
   autofillRow: { flexDirection:'row', gap:8, marginTop:4 },
   halfInput:   { flex:1 },
   chipRow:     { flexDirection:'row', flexWrap:'wrap', gap:8, marginBottom:4 },
-  chip:        { borderRadius:100, paddingHorizontal:14, paddingVertical:7, borderWidth:1.5, borderColor:C.border, backgroundColor:C.white },
-  chipOn:      { borderColor:C.rose, backgroundColor:C.pinkLight },
-  chipTxt:     { fontSize:12, fontWeight:'700', color:C.soft },
-  chipTxtOn:   { color:C.rose },
+  chip:        { borderRadius:100, paddingHorizontal:14, paddingVertical:7, borderWidth:1.5, borderColor:T.border, backgroundColor:T.bgCard },
+  chipOn:      { borderColor:T.rose, backgroundColor:T.bgElevated },
+  chipTxt:     { fontSize:12, fontWeight:'700', color:T.textSec },
+  chipTxtOn:   { color:T.rose },
   toggleRow:   { flexDirection:'row', alignItems:'center', gap:10, marginTop:16, marginBottom:4 },
-  toggleBox:   { width:20, height:20, borderRadius:5, borderWidth:2, borderColor:C.soft, alignItems:'center', justifyContent:'center' },
-  toggleLabel: { fontSize:13, color:C.charcoal, fontWeight:'600' },
-  saveBtn:     { backgroundColor:C.rose, borderRadius:999, paddingVertical:15, alignItems:'center', marginTop:20 },
-  saveBtnTxt:  { color:C.white, fontWeight:'800', fontSize:16 },
-});
+  toggleBox:   { width:20, height:20, borderRadius:5, borderWidth:2, borderColor:T.textSec, alignItems:'center', justifyContent:'center' },
+  toggleLabel: { fontSize:13, color:T.textPrimary, fontWeight:'600' },
+  saveBtn:     { backgroundColor:T.rose, borderRadius:999, paddingVertical:15, alignItems:'center', marginTop:20 },
+  saveBtnTxt:  { color:T.white, fontWeight:'800', fontSize:16 },
+}); }

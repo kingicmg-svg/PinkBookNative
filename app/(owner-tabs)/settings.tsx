@@ -1,25 +1,29 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Share, Linking } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Share, Linking, Image, Clipboard, Modal } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
+import * as Haptics from 'expo-haptics';
 import { useAuth } from '../hooks/useAuth';
 import { useBiometricAuth } from '../hooks/useBiometricAuth';
 import { OwnerApi, SettingsApi, API_URL } from '../services/ApiService';
 import Colors from '../../constants/Colors';
+import { useTheme } from '../hooks/useTheme';
+import type { AppTheme } from '../../constants/Colors';
 
 const TIER_META: Record<string, { label: string; color: string; emoji: string }> = {
-  starter:      { label: 'Starter',      color: Colors.soft,     emoji: '🌸' },
-  pro:          { label: 'Pro',          color: Colors.rose,     emoji: '💜' },
+  starter:      { label: 'Starter',      color: T.textSec, emoji: '🌸' },
+  pro:          { label: 'Pro',          color: T.rose, emoji: '💜' },
   salon:        { label: 'Salon',        color: '#7C3AED',       emoji: '👑' },
-  studio_elite: { label: 'Studio Elite', color: Colors.charcoal, emoji: '⭐' },
+  studio_elite: { label: 'Studio Elite', color: T.textPrimary, emoji: '⭐' },
   owner:        { label: 'Owner',        color: Colors.gold,     emoji: '🔑' },
 };
 
 interface RowProps { icon: string; label: string; sub?: string; onPress: () => void; danger?: boolean; badge?: string; }
 function Row({ icon, label, sub, onPress, danger, badge }: RowProps) {
+  const handlePress = () => { Haptics.selectionAsync(); onPress(); };
   return (
-    <TouchableOpacity style={s.row} onPress={onPress}>
+    <TouchableOpacity style={s.row} onPress={handlePress}>
       <View style={s.rowIcon}><Text style={{ fontSize: 18 }}>{icon}</Text></View>
       <View style={s.rowContent}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -38,10 +42,14 @@ export default function SettingsScreen() {
   const router = useRouter();
   const { token, signOut } = useAuth();
   const bio = useBiometricAuth();
+  const T = useTheme();
+  const s = React.useMemo(() => makeStyles(T), [T]);
   const [user, setUser] = useState<any>(null);
   const [settings, setSettings] = useState<any>(null);
   const [brandSlug, setBrandSlug] = useState('');
   const [loading, setLoading] = useState(true);
+  const [qrDataUrl, setQrDataUrl] = useState('');
+  const [showWidget, setShowWidget] = useState(false);
 
   useEffect(() => {
     if (!token) return;
@@ -50,10 +58,21 @@ export default function SettingsScreen() {
       SettingsApi.get(token),
       OwnerApi.brandProfile(token).catch(() => ({ success: false, data: null })),
     ]).then(([meRes, stRes, brandRes]) => {
-      setUser(meRes.user || {});
-      setSettings(stRes?.settings || {});
-      const prof = brandRes?.data || {};
-      setBrandSlug(prof.booking_slug || '');
+      const u = meRes.user || {};
+      const st = (stRes as any)?.settings || {};
+      const prof = (brandRes as any)?.data || {};
+      setUser(u);
+      setSettings(st);
+      const sl = prof.booking_slug || '';
+      setBrandSlug(sl);
+      // Build booking URL and fetch QR
+      const ownerId = u?.id || u?.owner_id || '';
+      const displayName = st?.studioName || u?.name || '';
+      const handle = displayName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'stylist';
+      const url = sl
+        ? `https://pinkbook.app/book/${sl}`
+        : `https://pinkbook.app/pinkbook-booking.html?owner=${ownerId}&name=${handle}&display=${encodeURIComponent(displayName)}`;
+      OwnerApi.getQrCode(url).then(r => setQrDataUrl(r.qr || '')).catch(() => {});
     }).catch(() => {}).finally(() => setLoading(false));
   }, [token]);
 
@@ -68,6 +87,29 @@ export default function SettingsScreen() {
     await Share.share({ message: `Book with me on PinkBook: ${bookingUrl}` });
   };
 
+  const copyLink = async () => {
+    if (!bookingUrl) return;
+    try { await Clipboard.setString(bookingUrl); Alert.alert('Copied!', 'Booking link copied to clipboard.'); }
+    catch { await Share.share({ message: bookingUrl }); }
+  };
+
+  const copyInstagramCaption = async () => {
+    const caption = `Book your appointment with me!\n👇 Tap the link in my bio to book\n\n${bookingUrl}\n\n#beauty #bookinglink #pinkbook`;
+    try { await Clipboard.setString(caption); Alert.alert('Copied!', 'Instagram caption copied. Paste it in your bio or story.'); }
+    catch { await Share.share({ message: caption }); }
+  };
+
+  const widgetCode = `<!-- PinkBook Booking Widget -->
+<div style="text-align:center;margin:20px 0;">
+  <a href="${bookingUrl}" target="_blank" rel="noopener"
+    style="display:inline-block;background:linear-gradient(135deg,#C85D7A,#F2A7BB);
+    color:#fff;padding:14px 32px;border-radius:30px;text-decoration:none;
+    font-family:sans-serif;font-weight:600;font-size:16px;
+    box-shadow:0 4px 14px rgba(200,93,122,0.35);">
+    Book Now
+  </a>
+</div>`;
+
   const confirmSignOut = () => {
     Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
       { text: 'Cancel', style: 'cancel' },
@@ -75,7 +117,7 @@ export default function SettingsScreen() {
     ]);
   };
 
-  if (loading) return <View style={[s.center, { paddingTop: insets.top }]}><ActivityIndicator color={Colors.rose} size="large" /></View>;
+  if (loading) return <View style={[s.center, { paddingTop: insets.top }]}><ActivityIndicator color={T.rose} size="large" /></View>;
 
   const name = settings?.studioName || user?.name || 'My Studio';
   const email = user?.email || '';
@@ -117,24 +159,48 @@ export default function SettingsScreen() {
           </View>
         </View>
 
-        {/* Booking link */}
-        <View style={s.linkCard}>
-          <View style={{ flex: 1 }}>
-            <Text style={s.linkLabel}>📅 My Booking Page</Text>
-            <Text style={s.linkUrl} numberOfLines={1}>{bookingLink || 'Set up Brand Studio to get your link'}</Text>
+        {/* Grow Your Business card */}
+        <View style={s.growCard}>
+          <Text style={s.growCardTitle}>📲 Grow Your Business</Text>
+          {/* QR Code */}
+          <View style={s.qrRow}>
+            <View style={s.qrBox}>
+              {qrDataUrl
+                ? <Image source={{ uri: qrDataUrl }} style={s.qrImage} resizeMode="contain" />
+                : <ActivityIndicator color={T.rose} />}
+            </View>
+            <View style={{ flex: 1, gap: 8 }}>
+              <Text style={s.qrLabel}>Your booking QR</Text>
+              <Text style={s.qrSub} numberOfLines={2}>{bookingLink || 'Complete your Brand Studio profile to activate your booking link.'}</Text>
+              {!!bookingUrl && (
+                <TouchableOpacity style={s.qrCopyBtn} onPress={copyLink}>
+                  <Text style={s.qrCopyTxt}>📋 Copy Link</Text>
+                </TouchableOpacity>
+              )}
+              {!!slug && (
+                <TouchableOpacity style={[s.qrCopyBtn, { backgroundColor: T.bgElevated }]} onPress={() => router.push(`/booking/${slug}`)}>
+                  <Text style={[s.qrCopyTxt, { color: T.white }]}>👁 Preview</Text>
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
-          <View style={{ gap: 6 }}>
-            {!!slug && (
-              <TouchableOpacity style={s.shareBtn} onPress={() => router.push(`/booking/${slug}`)}>
-                <Text style={s.shareBtnTxt}>Preview</Text>
+          {/* Actions row */}
+          {!!bookingUrl && (
+            <View style={s.growActions}>
+              <TouchableOpacity style={s.growAction} onPress={shareLink}>
+                <Text style={s.growActionIcon}>🔗</Text>
+                <Text style={s.growActionTxt}>Share Link</Text>
               </TouchableOpacity>
-            )}
-            {!!bookingLink && (
-              <TouchableOpacity style={[s.shareBtn, { backgroundColor: Colors.charcoal }]} onPress={shareLink}>
-                <Text style={[s.shareBtnTxt, { color: Colors.white }]}>Share</Text>
+              <TouchableOpacity style={s.growAction} onPress={copyInstagramCaption}>
+                <Text style={s.growActionIcon}>📸</Text>
+                <Text style={s.growActionTxt}>Instagram Bio</Text>
               </TouchableOpacity>
-            )}
-          </View>
+              <TouchableOpacity style={s.growAction} onPress={() => setShowWidget(true)}>
+                <Text style={s.growActionIcon}>🌐</Text>
+                <Text style={s.growActionTxt}>Website Widget</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
 
         {/* Account */}
@@ -203,6 +269,8 @@ export default function SettingsScreen() {
               if (tier === 'starter') { Alert.alert('Pro Feature', 'Marketing campaigns are available on the Pro plan.'); return; }
               router.push('/owner/campaigns');
             }} />
+          <Row icon="📥" label="Import Clients"    sub="Switch from Vagaro, GlossGenius, Square & more"
+            onPress={() => router.push('/owner/import-clients')} />
         </View>
 
         {/* Operations */}
@@ -228,7 +296,7 @@ export default function SettingsScreen() {
           <Row icon="🔌" label="Integrations"     sub="Calendar sync, payments, analytics, social"
             onPress={() => router.push('/owner/integrations')} />
           <Row icon="🔗" label="Booking Widget"   sub="QR code, Instagram link, website embed"
-            onPress={() => router.push('/(owner-tabs)/dashboard')} />
+            onPress={() => router.push('/owner/integrations')} />
         </View>
 
         {/* Plans */}
@@ -268,38 +336,80 @@ export default function SettingsScreen() {
         <Text style={s.version}>PinkBook v1.0  ·  pinkbook.app</Text>
         <View style={{ height: 40 }} />
       </ScrollView>
+
+      {/* Website Widget Modal */}
+      <Modal visible={showWidget} transparent animationType="slide" onRequestClose={() => setShowWidget(false)}>
+        <View style={s.modalOverlay}>
+          <View style={s.widgetModal}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <Text style={s.growCardTitle}>Website Widget Code</Text>
+              <TouchableOpacity onPress={() => setShowWidget(false)}>
+                <Text style={{ fontSize: 22, color: T.textSec }}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={{ flex: 1 }}>
+              <Text style={s.widgetCode}>{widgetCode}</Text>
+            </ScrollView>
+            <TouchableOpacity
+              style={[s.qrCopyBtn, { alignSelf: 'stretch', alignItems: 'center', marginTop: 12, paddingVertical: 12 }]}
+              onPress={async () => {
+                try { await Clipboard.setString(widgetCode); Alert.alert('Copied!', 'Embed code copied to clipboard.'); }
+                catch { await Share.share({ message: widgetCode }); }
+              }}
+            >
+              <Text style={s.qrCopyTxt}>📋 Copy Embed Code</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
 
-const s = StyleSheet.create({
-  container:   { flex: 1, backgroundColor: Colors.cream },
-  center:      { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.cream },
-  topBar:      { paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: Colors.border },
-  pageTitle:   { fontSize: 22, fontWeight: '900', color: Colors.charcoal, fontFamily: 'Georgia' },
+function makeStyles(T: AppTheme) { return StyleSheet.create({
+  container:   { flex: 1, backgroundColor: T.bgBase },
+  center:      { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: T.bgBase },
+  topBar:      { paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: T.border },
+  pageTitle:   { fontSize: 22, fontWeight: '900', color: T.textPrimary, fontFamily: 'Georgia' },
   scroll:      { padding: 16, gap: 2 },
-  profileCard: { backgroundColor: Colors.white, borderRadius: 16, padding: 16, flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderColor: Colors.border, marginBottom: 10 },
-  avatar:      { width: 52, height: 52, borderRadius: 26, backgroundColor: Colors.pinkLight, alignItems: 'center', justifyContent: 'center' },
-  avatarTxt:   { fontSize: 22, fontWeight: '800', color: Colors.rose },
-  profileName: { fontSize: 16, fontWeight: '800', color: Colors.charcoal },
-  profileEmail:{ fontSize: 12, color: Colors.soft, marginTop: 2 },
-  profileCity: { fontSize: 12, color: Colors.soft, marginTop: 2 },
+  profileCard: { backgroundColor: T.bgCard, borderRadius: 16, padding: 16, flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderColor: T.border, marginBottom: 10 },
+  avatar:      { width: 52, height: 52, borderRadius: 26, backgroundColor: T.bgElevated, alignItems: 'center', justifyContent: 'center' },
+  avatarTxt:   { fontSize: 22, fontWeight: '800', color: T.rose },
+  profileName: { fontSize: 16, fontWeight: '800', color: T.textPrimary },
+  profileEmail:{ fontSize: 12, color: T.textSec, marginTop: 2 },
+  profileCity: { fontSize: 12, color: T.textSec, marginTop: 2 },
   tierBadge:   { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1 },
   tierTxt:     { fontSize: 11, fontWeight: '800' },
-  linkCard:    { backgroundColor: Colors.charcoal, borderRadius: 14, padding: 16, flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 10 },
-  linkLabel:   { fontSize: 10, fontWeight: '700', color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 4 },
-  linkUrl:     { fontSize: 13, fontWeight: '700', color: Colors.pink },
-  shareBtn:    { backgroundColor: Colors.rose, borderRadius: 999, paddingHorizontal: 16, paddingVertical: 8 },
-  shareBtnTxt: { color: Colors.white, fontWeight: '800', fontSize: 13 },
-  section:     { fontSize: 11, fontWeight: '800', letterSpacing: 1, textTransform: 'uppercase', color: Colors.rose, paddingHorizontal: 4, marginTop: 20, marginBottom: 8 },
-  group:       { backgroundColor: Colors.white, borderRadius: 16, borderWidth: 1, borderColor: Colors.border, overflow: 'hidden' },
-  row:         { flexDirection: 'row', alignItems: 'center', padding: 14, borderBottomWidth: 1, borderBottomColor: Colors.border },
-  rowIcon:     { width: 34, height: 34, borderRadius: 10, backgroundColor: Colors.pinkLight + '50', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+  linkCard:    { backgroundColor: T.bgElevated, borderRadius: 14, padding: 16, flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 10, borderWidth: 1, borderColor: T.border },
+  linkLabel:   { fontSize: 10, fontWeight: '700', color: T.textMuted, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 4 },
+  linkUrl:     { fontSize: 13, fontWeight: '700', color: T.rose },
+  shareBtn:    { backgroundColor: T.rose, borderRadius: 999, paddingHorizontal: 16, paddingVertical: 8 },
+  shareBtnTxt: { color: T.white, fontWeight: '800', fontSize: 13 },
+  section:     { fontSize: 11, fontWeight: '800', letterSpacing: 1, textTransform: 'uppercase', color: T.rose, paddingHorizontal: 4, marginTop: 20, marginBottom: 8 },
+  group:       { backgroundColor: T.bgCard, borderRadius: 16, borderWidth: 1, borderColor: T.border, overflow: 'hidden' },
+  row:         { flexDirection: 'row', alignItems: 'center', padding: 14, borderBottomWidth: 1, borderBottomColor: T.border },
+  rowIcon:     { width: 34, height: 34, borderRadius: 10, backgroundColor: T.bgElevated, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
   rowContent:  { flex: 1 },
-  rowLabel:    { fontSize: 14, fontWeight: '700', color: Colors.charcoal },
-  rowSub:      { fontSize: 12, color: Colors.soft, marginTop: 2 },
-  badge:       { backgroundColor: Colors.rose, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999 },
-  badgeTxt:    { fontSize: 10, fontWeight: '800', color: Colors.white },
-  chevron:     { fontSize: 22, color: Colors.soft, fontWeight: '300' },
-  version:     { textAlign: 'center', fontSize: 11, color: Colors.soft, marginTop: 24 },
-});
+  rowLabel:    { fontSize: 14, fontWeight: '700', color: T.textPrimary },
+  rowSub:      { fontSize: 12, color: T.textSec, marginTop: 2 },
+  badge:       { backgroundColor: T.rose, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999 },
+  badgeTxt:    { fontSize: 10, fontWeight: '800', color: T.white },
+  chevron:     { fontSize: 22, color: T.textSec, fontWeight: '300' },
+  version:     { textAlign: 'center', fontSize: 11, color: T.textSec, marginTop: 24 },
+  growCard:    { backgroundColor: T.bgCard, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: T.border, marginBottom: 4 },
+  growCardTitle:{ fontSize: 15, fontWeight: '900', color: T.textPrimary, fontFamily: 'Georgia', marginBottom: 12 },
+  qrRow:       { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 12 },
+  qrBox:       { width: 90, height: 90, backgroundColor: T.bgElevated, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  qrImage:     { width: 82, height: 82 },
+  qrLabel:     { fontSize: 13, fontWeight: '800', color: T.textPrimary },
+  qrSub:       { fontSize: 11, color: T.textSec, lineHeight: 16 },
+  qrCopyBtn:   { backgroundColor: T.rose, borderRadius: 8, paddingVertical: 6, paddingHorizontal: 12, alignSelf: 'flex-start' },
+  qrCopyTxt:   { fontSize: 12, fontWeight: '800', color: T.white },
+  growActions: { flexDirection: 'row', gap: 8, marginTop: 4 },
+  growAction:  { flex: 1, backgroundColor: T.bgElevated, borderRadius: 12, padding: 10, alignItems: 'center', gap: 4 },
+  growActionIcon:{ fontSize: 20 },
+  growActionTxt: { fontSize: 11, fontWeight: '700', color: T.textPrimary, textAlign: 'center' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  widgetModal:  { backgroundColor: T.bgCard, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, maxHeight: '65%' },
+  widgetCode:   { fontSize: 11, color: T.textMuted, fontFamily: 'monospace', lineHeight: 18, backgroundColor: T.bgElevated, borderRadius: 10, padding: 12 },
+}); }

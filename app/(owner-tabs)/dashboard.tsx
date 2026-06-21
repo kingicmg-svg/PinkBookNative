@@ -20,6 +20,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../hooks/useAuth';
 import { OwnerApi, SettingsApi, API_URL } from '../services/ApiService';
 import Colors from '../../constants/Colors';
+import { useTheme } from '../hooks/useTheme';
+import type { AppTheme } from '../../constants/Colors';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -96,6 +98,8 @@ export default function DashboardScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { token } = useAuth();
+  const T = useTheme();
+  const s = React.useMemo(() => makeStyles(T), [T]);
 
   // Data state
   const [user, setUser]           = useState<any>(null);
@@ -182,10 +186,10 @@ export default function DashboardScreen() {
 
   const tier = user?.subscription_tier || user?.tier || settings?.subscriptionTier || settings?.subscription_tier || 'starter';
   const TIER_META: Record<string, { label: string; color: string; emoji: string }> = {
-    starter: { label: 'Starter', color: Colors.soft, emoji: '🌸' },
-    pro: { label: 'Pro', color: Colors.rose, emoji: '💜' },
+    starter: { label: 'Starter', color: T.textSec, emoji: '🌸' },
+    pro: { label: 'Pro', color: T.rose, emoji: '💜' },
     salon: { label: 'Salon', color: '#7C3AED', emoji: '👑' },
-    studio_elite: { label: 'Studio Elite', color: Colors.charcoal, emoji: '⭐' },
+    studio_elite: { label: 'Studio Elite', color: T.textPrimary, emoji: '⭐' },
     owner: { label: 'Owner', color: Colors.gold, emoji: '🔑' },
   };
   const tierMeta = TIER_META[tier] || TIER_META.starter;
@@ -258,7 +262,7 @@ export default function DashboardScreen() {
   if (loading) {
     return (
       <View style={[s.center, { paddingTop: insets.top }]}>
-        <ActivityIndicator color={Colors.rose} size="large" />
+        <ActivityIndicator color={T.rose} size="large" />
       </View>
     );
   }
@@ -285,7 +289,7 @@ export default function DashboardScreen() {
             router.push('/owner/notifications');
           }}
         >
-          <Ionicons name="notifications-outline" size={22} color={Colors.charcoal} />
+          <Ionicons name="notifications-outline" size={22} color={T.textPrimary} />
           {notifCount > 0 && (
             <View style={s.bellBadge}><Text style={s.bellBadgeTxt}>{notifCount}</Text></View>
           )}
@@ -294,7 +298,7 @@ export default function DashboardScreen() {
 
       <ScrollView
         contentContainerStyle={s.scroll}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.rose} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={T.rose} />}
         showsVerticalScrollIndicator={false}
       >
         {/* ── TODAY'S SCHEDULE ── */}
@@ -439,7 +443,7 @@ export default function DashboardScreen() {
               value={badgeName}
               onChangeText={setBadgeName}
               placeholder="Badge name (e.g. Accepting New Clients)"
-              placeholderTextColor={Colors.soft}
+              placeholderTextColor={T.textMuted}
               maxLength={30}
             />
             <TouchableOpacity style={s.emojiPickerBtn} onPress={() => setShowEmojiPicker(true)}>
@@ -467,7 +471,7 @@ export default function DashboardScreen() {
             {['#FFFFFF', '#1C1C1E', '#C85D7A', '#F2A7BB', '#7C3AED'].map(c => (
               <TouchableOpacity
                 key={c}
-                style={[s.colorDot, { backgroundColor: c, borderWidth: 1, borderColor: Colors.border }, badgeTextColor === c && s.colorDotActive]}
+                style={[s.colorDot, { backgroundColor: c, borderWidth: 1, borderColor: T.border }, badgeTextColor === c && s.colorDotActive]}
                 onPress={() => setBadgeTextColor(c)}
               />
             ))}
@@ -478,14 +482,14 @@ export default function DashboardScreen() {
             onPress={handleAddBadge}
             disabled={!badgeName.trim() || badgeAdding}
           >
-            {badgeAdding ? <ActivityIndicator color={Colors.white} size="small" /> : <Text style={s.addBadgeTxt}>+ Add Badge</Text>}
+            {badgeAdding ? <ActivityIndicator color={T.white} size="small" /> : <Text style={s.addBadgeTxt}>+ Add Badge</Text>}
           </TouchableOpacity>
 
           {/* Existing badges */}
           {badges.length > 0 && (
             <View style={s.badgeList}>
               {badges.map(b => (
-                <View key={b.id} style={[s.badgeChip, { backgroundColor: b.color || Colors.rose }]}>
+                <View key={b.id} style={[s.badgeChip, { backgroundColor: b.color || T.rose }]}>
                   <Text style={{ fontSize: 13 }}>{b.emoji || ''}</Text>
                   <Text style={[s.badgeChipTxt, { color: b.textColor || '#FFF' }]}>{b.name}</Text>
                   <TouchableOpacity onPress={() => handleDeleteBadge(b.id)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
@@ -521,95 +525,82 @@ export default function DashboardScreen() {
 
 // ─── Styles ──────────────────────────────────────────────────────────────────
 
-const s = StyleSheet.create({
-  container:   { flex: 1, backgroundColor: Colors.cream },
-  center:      { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.cream },
-  topBar:      { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 18, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: Colors.border, backgroundColor: Colors.white },
-  greetingTxt: { fontSize: 18, fontWeight: '900', color: Colors.charcoal, fontFamily: 'Georgia' },
-  dateTxt:     { fontSize: 12, color: Colors.soft, marginTop: 2 },
+const s = StyleSheet.create({ _: {} }); // unused — styles are dynamic via makeStyles
+function makeStyles(T: AppTheme) { return StyleSheet.create({
+  container:   { flex: 1, backgroundColor: T.bgBase },
+  center:      { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: T.bgBase },
+  topBar:      { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 18, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: T.border, backgroundColor: T.bgCard },
+  greetingTxt: { fontSize: 18, fontWeight: '900', color: T.textPrimary, fontFamily: 'Georgia' },
+  dateTxt:     { fontSize: 12, color: T.textSec, marginTop: 2 },
   tierPill:    { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1 },
   tierPillTxt: { fontSize: 11, fontWeight: '800' },
-  bellBtn:     { width: 38, height: 38, borderRadius: 19, backgroundColor: Colors.pinkLight, alignItems: 'center', justifyContent: 'center' },
-  bellBadge:   { position: 'absolute', top: -2, right: -2, backgroundColor: Colors.rose, width: 16, height: 16, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-  bellBadgeTxt:{ fontSize: 9, fontWeight: '800', color: Colors.white },
-
+  bellBtn:     { width: 38, height: 38, borderRadius: 19, backgroundColor: T.bgElevated, alignItems: 'center', justifyContent: 'center' },
+  bellBadge:   { position: 'absolute', top: -2, right: -2, backgroundColor: T.rose, width: 16, height: 16, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  bellBadgeTxt:{ fontSize: 9, fontWeight: '800', color: T.white },
   scroll:      { padding: 16, gap: 12 },
-  card:        { backgroundColor: Colors.white, borderRadius: 18, padding: 16, borderWidth: 1, borderColor: Colors.border },
-  cardTitle:   { fontSize: 15, fontWeight: '900', color: Colors.charcoal, marginBottom: 12, fontFamily: 'Georgia' },
-  cardSub:     { fontSize: 12, color: Colors.soft, marginBottom: 12 },
-
+  card:        { backgroundColor: T.bgCard, borderRadius: 18, padding: 16, borderWidth: 1, borderColor: T.border },
+  cardTitle:   { fontSize: 15, fontWeight: '900', color: T.textPrimary, marginBottom: 12, fontFamily: 'Georgia' },
+  cardSub:     { fontSize: 12, color: T.textSec, marginBottom: 12 },
   sectionHeader:{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
-  sectionTitle: { fontSize: 15, fontWeight: '900', color: Colors.charcoal, fontFamily: 'Georgia' },
-  sectionAction:{ fontSize: 13, fontWeight: '700', color: Colors.rose },
-
-  // Bookings
-  bookingRow:  { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, borderTopWidth: 1, borderTopColor: Colors.border },
+  sectionTitle: { fontSize: 15, fontWeight: '900', color: T.textPrimary, fontFamily: 'Georgia' },
+  sectionAction:{ fontSize: 13, fontWeight: '700', color: T.rose, fontFamily: 'Georgia', fontStyle: 'italic' },
+  bookingRow:  { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, borderTopWidth: 1, borderTopColor: T.border },
   bookingDot:  { width: 8, height: 8, borderRadius: 4 },
-  bookingClient:{ fontSize: 14, fontWeight: '700', color: Colors.charcoal },
-  bookingMeta: { fontSize: 12, color: Colors.soft, marginTop: 1 },
+  bookingClient:{ fontSize: 14, fontWeight: '700', color: T.textPrimary },
+  bookingMeta: { fontSize: 12, color: T.textSec, marginTop: 1 },
   statusPill:  { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999 },
   statusPillTxt:{ fontSize: 10, fontWeight: '800', textTransform: 'capitalize' },
   emptyBox:    { alignItems: 'center', paddingVertical: 20, gap: 6 },
   emptyEmoji:  { fontSize: 28 },
-  emptyTxt:    { fontSize: 13, color: Colors.soft, textAlign: 'center' },
-  moreLink:    { fontSize: 13, fontWeight: '700', color: Colors.rose, textAlign: 'center', marginTop: 8 },
-
-  // Quick Actions
+  emptyTxt:    { fontSize: 13, color: T.textSec, textAlign: 'center' },
+  moreLink:    { fontSize: 13, fontWeight: '700', color: T.rose, textAlign: 'center', marginTop: 8 },
   quickGrid:   { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  quickBtn:    { flex: 1, minWidth: '45%', backgroundColor: Colors.pinkLight, borderRadius: 14, padding: 14, alignItems: 'center', gap: 6 },
+  quickBtn:    { flex: 1, minWidth: '45%', backgroundColor: T.bgElevated, borderRadius: 14, padding: 14, alignItems: 'center', gap: 6 },
   quickIcon:   { fontSize: 26 },
-  quickLabel:  { fontSize: 12, fontWeight: '800', color: Colors.charcoal, textAlign: 'center' },
-
-  // Badges
+  quickLabel:  { fontSize: 12, fontWeight: '800', color: T.textPrimary, textAlign: 'center' },
   badgePreviewRow: { alignItems: 'center', marginBottom: 12 },
   badgePreview:    { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 999 },
   badgePreviewTxt: { fontSize: 14, fontWeight: '800' },
   badgeInputRow:   { flexDirection: 'row', gap: 8, marginBottom: 10 },
-  badgeInput:      { flex: 1, backgroundColor: Colors.cream, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, fontSize: 14, color: Colors.charcoal, borderWidth: 1, borderColor: Colors.border },
-  emojiPickerBtn:  { width: 44, height: 44, backgroundColor: Colors.cream, borderRadius: 10, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.border },
-  pickerLabel:     { fontSize: 11, fontWeight: '700', color: Colors.soft, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6 },
+  badgeInput:      { flex: 1, backgroundColor: T.bgInput, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, fontSize: 14, color: T.textPrimary, borderWidth: 1, borderColor: T.border },
+  emojiPickerBtn:  { width: 44, height: 44, backgroundColor: T.bgInput, borderRadius: 10, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: T.border },
+  pickerLabel:     { fontSize: 11, fontWeight: '700', color: T.textSec, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6 },
   colorRow:        { flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginBottom: 12 },
   colorDot:        { width: 28, height: 28, borderRadius: 14 },
-  colorDotActive:  { borderWidth: 3, borderColor: Colors.charcoal },
-  addBadgeBtn:     { backgroundColor: Colors.rose, borderRadius: 12, paddingVertical: 12, alignItems: 'center', marginTop: 4, flexDirection: 'row', justifyContent: 'center', gap: 6 },
-  addBadgeTxt:     { color: Colors.white, fontWeight: '800', fontSize: 14 },
+  colorDotActive:  { borderWidth: 3, borderColor: T.textPrimary },
+  addBadgeBtn:     { backgroundColor: T.rose, borderRadius: 12, paddingVertical: 12, alignItems: 'center', marginTop: 4, flexDirection: 'row', justifyContent: 'center', gap: 6 },
+  addBadgeTxt:     { color: T.white, fontWeight: '800', fontSize: 14 },
   badgeList:       { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
   badgeChip:       { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999 },
   badgeChipTxt:    { fontSize: 12, fontWeight: '700' },
-
-  // Insights
   insightGrid:  { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  insightItem:  { flex: 1, minWidth: '45%', backgroundColor: Colors.cream, borderRadius: 12, padding: 12 },
-  insightValue: { fontSize: 18, fontWeight: '900', color: Colors.charcoal, marginBottom: 2 },
-  insightLabel: { fontSize: 11, color: Colors.soft, fontWeight: '600' },
+  insightItem:  { flex: 1, minWidth: '45%', backgroundColor: T.bgElevated, borderRadius: 12, padding: 12 },
+  insightValue: { fontSize: 18, fontWeight: '900', color: T.textPrimary, marginBottom: 2 },
+  insightLabel: { fontSize: 11, color: T.textSec, fontWeight: '600' },
   atRiskBanner: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#FFF8E1', borderRadius: 12, padding: 12, marginTop: 12, borderWidth: 1, borderColor: '#FFD54F' },
   atRiskEmoji:  { fontSize: 22 },
   atRiskTitle:  { fontSize: 13, fontWeight: '800', color: '#795548', marginBottom: 2 },
   atRiskSub:    { fontSize: 11, color: '#A1887F' },
-  atRiskCta:    { fontSize: 13, fontWeight: '900', color: Colors.rose },
-
-  // Grow
-  growSection:  { marginBottom: 20, paddingBottom: 20, borderBottomWidth: 1, borderBottomColor: Colors.border },
-  growLabel:    { fontSize: 14, fontWeight: '900', color: Colors.charcoal, marginBottom: 4 },
-  growSub:      { fontSize: 12, color: Colors.soft, marginBottom: 10 },
-  qrBox:        { backgroundColor: Colors.cream, borderRadius: 14, padding: 16, alignItems: 'center', justifyContent: 'center', marginBottom: 10, minHeight: 180 },
+  atRiskCta:    { fontSize: 13, fontWeight: '900', color: T.rose },
+  growSection:  { marginBottom: 20, paddingBottom: 20, borderBottomWidth: 1, borderBottomColor: T.border },
+  growLabel:    { fontSize: 14, fontWeight: '900', color: T.textPrimary, marginBottom: 4 },
+  growSub:      { fontSize: 12, color: T.textSec, marginBottom: 10 },
+  qrBox:        { backgroundColor: T.bgElevated, borderRadius: 14, padding: 16, alignItems: 'center', justifyContent: 'center', marginBottom: 10, minHeight: 180 },
   qrImage:      { width: 160, height: 160 },
-  growBtn:      { backgroundColor: Colors.rose, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
-  growBtnTxt:   { color: Colors.white, fontWeight: '800', fontSize: 13 },
-  growLinkBox:  { backgroundColor: Colors.cream, borderRadius: 10, padding: 12, marginBottom: 10 },
-  growLinkTxt:  { fontSize: 13, color: Colors.charcoal, fontWeight: '600' },
-  widgetCodeBox:{ backgroundColor: Colors.cream, borderRadius: 10, padding: 12, marginBottom: 10 },
-  widgetCodeTxt:{ fontSize: 10, color: Colors.mid, fontFamily: 'monospace' },
+  growBtn:      { backgroundColor: T.rose, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  growBtnTxt:   { color: T.white, fontWeight: '800', fontSize: 13 },
+  growLinkBox:  { backgroundColor: T.bgElevated, borderRadius: 10, padding: 12, marginBottom: 10 },
+  growLinkTxt:  { fontSize: 13, color: T.textPrimary, fontWeight: '600' },
+  widgetCodeBox:{ backgroundColor: T.bgElevated, borderRadius: 10, padding: 12, marginBottom: 10 },
+  widgetCodeTxt:{ fontSize: 10, color: T.textMuted, fontFamily: 'monospace' },
   widgetTap:    { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 8 },
-  widgetTapTxt: { fontSize: 12, fontWeight: '700', color: Colors.rose },
-
-  // Modals
-  modalOverlay:    { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
-  emojiModal:      { backgroundColor: Colors.white, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24 },
-  emojiModalTitle: { fontSize: 16, fontWeight: '900', color: Colors.charcoal, marginBottom: 16, fontFamily: 'Georgia' },
+  widgetTapTxt: { fontSize: 12, fontWeight: '700', color: T.rose },
+  modalOverlay:    { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  emojiModal:      { backgroundColor: T.bgCard, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24 },
+  emojiModalTitle: { fontSize: 16, fontWeight: '900', color: T.textPrimary, marginBottom: 16, fontFamily: 'Georgia' },
   emojiGrid:       { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   emojiOption:     { width: 50, height: 50, alignItems: 'center', justifyContent: 'center' },
-  widgetModal:     { backgroundColor: Colors.white, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, maxHeight: '70%' },
+  widgetModal:     { backgroundColor: T.bgCard, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, maxHeight: '70%' },
   widgetModalHeader:{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  widgetFullCode:  { fontSize: 11, color: Colors.mid, fontFamily: 'monospace', lineHeight: 18, backgroundColor: Colors.cream, borderRadius: 10, padding: 12 },
-});
+  widgetFullCode:  { fontSize: 11, color: T.textMuted, fontFamily: 'monospace', lineHeight: 18, backgroundColor: T.bgElevated, borderRadius: 10, padding: 12 },
+}); }

@@ -162,7 +162,11 @@ function BookingCard({ item, loyaltyMap, token, onReviewDone }:
   return (
     <>
       <ReviewModal visible={showReview} slug={slug} bizName={biz} token={token} onClose={() => { setShowReview(false); onReviewDone(); }} />
-      <View style={bc.card}>
+      <TouchableOpacity
+        style={bc.card}
+        activeOpacity={0.85}
+        onPress={() => token_ ? router.push(`/consumer/booking-detail?token=${token_}${slug ? `&slug=${encodeURIComponent(slug)}` : ''}`) : undefined}
+      >
         {/* Header row */}
         <View style={bc.row}>
           <View style={{ flex: 1 }}>
@@ -210,7 +214,7 @@ function BookingCard({ item, loyaltyMap, token, onReviewDone }:
             </TouchableOpacity>
           )}
         </View>
-      </View>
+      </TouchableOpacity>
     </>
   );
 }
