@@ -147,8 +147,15 @@ export default function SettingsScreen() {
         {/* Brand */}
         <Text style={s.section}>Brand</Text>
         <View style={s.group}>
-          <Row icon="🎨" label="Brand Studio"    sub="Identity, colors, fonts, voice"     onPress={() => router.push('/owner/brand-studio')}
-            badge={tier === 'starter' ? 'Pro' : undefined} />
+          <Row icon="🎨" label="Brand Studio"    sub="Identity, colors, fonts, voice"
+            badge={tier === 'starter' ? 'Pro' : undefined}
+            onPress={() => {
+              if (tier === 'starter') {
+                Alert.alert('Pro Feature', 'Brand Studio is available on the Pro plan and above.\n\nCustomise your booking page colours, fonts, tagline, booking link, and client communication tone.\n\nUpgrade to unlock.');
+                return;
+              }
+              router.push('/owner/brand-studio');
+            }} />
           <Row icon="⭐" label="Reviews"         sub="Your client reviews and rating"      onPress={() => router.push('/owner/reviews')} />
         </View>
 
