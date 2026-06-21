@@ -28,7 +28,7 @@ function PortfolioCard({ item, onBook }: { item: any; onBook: (s: string) => voi
   const slug = item.booking_slug || '';
   const tier = item.subscription_tier || '';
   const cat  = item.category || '';
-  const logo = item.logo_data_url || null;
+  const logo = item.logo_url || item.logo_data_url || null;
   const isElite = tier === 'studio_elite' || tier === 'elite';
   const [saved, setSaved] = useState(false);
 
@@ -83,7 +83,7 @@ function PortfolioCard({ item, onBook }: { item: any; onBook: (s: string) => voi
 }
 
 function TrendBubble({ item, onBook }: { item: any; onBook: (s: string) => void }) {
-  const logo = item.logo_data_url || null;
+  const logo = item.logo_url || item.logo_data_url || null;
   const name = item.business_name || '';
   return (
     <TouchableOpacity style={s.trendBubble} onPress={() => item.booking_slug && onBook(item.booking_slug)}>

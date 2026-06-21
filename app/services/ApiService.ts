@@ -145,7 +145,7 @@ export const OwnerApi = {
 
   // ── Logo upload ──
   uploadLogo: (token: string, body: { imageData: string; backgroundColor?: string }) =>
-    request<{ logoUrl: string; logoBackgroundColor: string }>('/api/v1/brand-studio/logo', { method: 'POST', body: JSON.stringify(body) }, token),
+    request<{ logoUrl: string; logoBackgroundColor: string }>('/api/v1/brand-studio/upload/profile-photo', { method: 'POST', body: JSON.stringify(body) }, token),
 
   deleteLogo: (token: string) =>
     request<{ success: boolean }>('/api/v1/brand-studio/logo', { method: 'DELETE' }, token),
