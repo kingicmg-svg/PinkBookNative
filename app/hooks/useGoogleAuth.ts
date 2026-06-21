@@ -17,7 +17,8 @@ export function useGoogleAuth(clientId: string | null) {
   const [nonce, setNonce] = useState<string>('');
   useEffect(() => {
     Crypto.getRandomBytesAsync(16).then(bytes => {
-      setNonce(Buffer.from(bytes).toString('hex'));
+      // Convert Uint8Array to hex without Node Buffer
+      setNonce(Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join(''));
     });
   }, []);
 

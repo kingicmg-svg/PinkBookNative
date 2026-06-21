@@ -10,7 +10,10 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.pinkbook.app",
-      "buildNumber": "1"
+      "buildNumber": "1",
+      "infoPlist": {
+        "NSFaceIDUsageDescription": "PinkBook uses Face ID so you can sign in securely without typing your password."
+      }
     },
     "plugins": [
       "expo-router",
@@ -25,7 +28,9 @@
         {
           "photosPermission": "PinkBook needs access to your photo library to upload portfolio and before/after images."
         }
-      ]
+      ],
+      "expo-secure-store",
+      "expo-local-authentication"
     ],
     "android": {
       "package": "com.pinkbook.app"

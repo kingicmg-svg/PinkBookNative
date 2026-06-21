@@ -143,6 +143,13 @@ export const OwnerApi = {
   brandGalleryPatch: (token: string, id: string, body: { caption?: string; isBefore?: boolean; pairId?: string | null }) =>
     request<any>(`/api/v1/brand-studio/gallery/${id}`, { method: 'PATCH', body: JSON.stringify(body) }, token),
 
+  // ── Logo upload ──
+  uploadLogo: (token: string, body: { imageData: string; backgroundColor?: string }) =>
+    request<{ logoUrl: string; logoBackgroundColor: string }>('/api/v1/brand-studio/logo', { method: 'POST', body: JSON.stringify(body) }, token),
+
+  deleteLogo: (token: string) =>
+    request<{ success: boolean }>('/api/v1/brand-studio/logo', { method: 'DELETE' }, token),
+
   // ── Subscription billing (Pro/Salon/Studio Elite) ──
   getSubscriptionStatus: (token: string) =>
     request<{ tier?: string; status?: string; active?: boolean; hasBilling?: boolean; cancelAtPeriodEnd?: boolean; currentPeriodEnd?: string }>

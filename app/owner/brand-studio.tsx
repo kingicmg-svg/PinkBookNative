@@ -46,6 +46,8 @@ export default function BrandStudioScreen() {
   const [primaryColor, setPrimary] = useState(C.rose);
   const [accentColor,  setAccent]  = useState(C.pinkLight);
   const [displayFont, setDisplayFont] = useState(FONTS[0]);
+  const [logoUrl, setLogoUrl]         = useState<string | null>(null);
+  const [logoUploading, setLogoUploading] = useState(false);
 
   // Step 2 — Booking Link
   const [slug, setSlug]           = useState('');
@@ -87,6 +89,7 @@ export default function BrandStudioScreen() {
       setPrimary(bp.primary_color || st.primaryColor || C.rose);
       setAccent(bp.accent_color || st.accentColor || C.pinkLight);
       setDisplayFont(bp.display_font || st.displayFont || FONTS[0]);
+      setLogoUrl(bp.logo_url || st.logoUrl || null);
 
       // Booking link
       setSlug(bp.booking_slug || st.bookingSlug || '');
@@ -366,7 +369,60 @@ export default function BrandStudioScreen() {
         <>
           <Text style={s.stepTitle}>Your visual identity</Text>
           <Text style={s.stepSub}>Choose brand colors and font for your booking page.</Text>
-          <Text style={s.label}>Brand Color Preset</Text>
+
+          {/* Logo Upload */}
+          <Text style={s.label}>Studio Logo</Text>
+          <View style={s.logoRow}>
+            {logoUrl ? (
+              <Image source={{ uri: logoUrl }} style={s.logoPreview} resizeMode="contain" />
+            ) : (
+              <View style={[s.logoPreview, { backgroundColor: C.pinkLight, alignItems: 'center', justifyContent: 'center' }]}>
+                <Text style={{ fontSize: 28 }}>🖼️</Text>
+              </View>
+            )}
+            <View style={{ flex: 1, gap: 8 }}>
+              <TouchableOpacity
+                style={[s.logoBtn, logoUploading && { opacity: 0.5 }]}
+                disabled={logoUploading}
+                onPress={async () => {
+                  const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+                  if (status !== 'granted') { Alert.alert('Permission needed', 'Allow photo library access to upload your logo.'); return; }
+                  const result = await ImagePicker.launchImageLibraryAsync({
+                    mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.85, base64: true,
+                  });
+                  if (result.canceled || !result.assets[0]?.base64) return;
+                  setLogoUploading(true);
+                  try {
+                    const imageData = `data:image/jpeg;base64,${result.assets[0].base64}`;
+                    const r = await OwnerApi.uploadLogo(token!, { imageData });
+                    setLogoUrl(r.logoUrl);
+                  } catch (e: any) { Alert.alert('Upload Failed', e.message || 'Please try again.'); }
+                  finally { setLogoUploading(false); }
+                }}
+              >
+                {logoUploading
+                  ? <ActivityIndicator color={C.white} size="small" />
+                  : <Text style={s.logoBtnTxt}>{logoUrl ? '↺ Replace Logo' : '+ Upload Logo'}</Text>}
+              </TouchableOpacity>
+              {!!logoUrl && (
+                <TouchableOpacity
+                  style={s.logoDeleteBtn}
+                  onPress={() => Alert.alert('Remove Logo', 'Remove your studio logo?', [
+                    { text: 'Cancel', style: 'cancel' },
+                    { text: 'Remove', style: 'destructive', onPress: async () => {
+                      try { await OwnerApi.deleteLogo(token!); setLogoUrl(null); }
+                      catch (e: any) { Alert.alert('Error', e.message); }
+                    }},
+                  ])}
+                >
+                  <Text style={s.logoDeleteTxt}>✕ Remove</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+          <Text style={s.logoHint}>Square image recommended · Shown instead of initials on your booking page</Text>
+
+          <Text style={[s.label, { marginTop: 16 }]}>Brand Color Preset</Text>
           <View style={s.colorGrid}>
             {COLOR_PRESETS.map(c => (
               <TouchableOpacity key={c.name} style={[s.colorSwatch,{backgroundColor:c.primary,borderWidth:primaryColor===c.primary?3:0,borderColor:C.charcoal}]} onPress={()=>{setPrimary(c.primary);setAccent(c.accent);}}>
@@ -502,6 +558,14 @@ const s = StyleSheet.create({
   back:          {color:C.rose,fontWeight:'700',fontSize:14,width:60},
   title:         {fontSize:17,fontWeight:'900',color:C.charcoal},
   saveTop:       {color:C.rose,fontWeight:'700',fontSize:14,width:60,textAlign:'right'},
+  // Logo
+  logoRow:       {flexDirection:'row',alignItems:'flex-start',gap:14,marginBottom:4},
+  logoPreview:   {width:80,height:80,borderRadius:14,backgroundColor:C.pinkLight},
+  logoBtn:       {backgroundColor:C.rose,borderRadius:999,paddingVertical:10,paddingHorizontal:16,alignItems:'center'},
+  logoBtnTxt:    {color:'#fff',fontWeight:'800',fontSize:13},
+  logoDeleteBtn: {borderWidth:1,borderColor:C.border,borderRadius:999,paddingVertical:8,paddingHorizontal:14,alignItems:'center'},
+  logoDeleteTxt: {color:C.soft,fontSize:12,fontWeight:'700'},
+  logoHint:      {color:C.soft,fontSize:11,marginBottom:12},
   stepBar:       {flexDirection:'row',justifyContent:'center',paddingVertical:10,gap:6},
   stepDot:       {width:28,height:28,borderRadius:14,backgroundColor:C.white,borderWidth:1,borderColor:C.border,alignItems:'center',justifyContent:'center'},
   stepDotActive: {backgroundColor:C.rose,borderColor:C.rose},

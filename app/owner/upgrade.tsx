@@ -195,59 +195,6 @@ export default function UpgradeScreen() {
   );
 }
 
-  return (
-    <View style={[s.container, { paddingTop: insets.top }]}>
-      <View style={s.topBar}>
-        <TouchableOpacity onPress={() => router.back()}><Text style={s.back}>← Back</Text></TouchableOpacity>
-        <Text style={s.title}>Plans & Pricing</Text>
-        <View style={{ width: 60 }} />
-      </View>
-      <ScrollView contentContainerStyle={s.scroll}>
-        <View style={s.hero}>
-          <Text style={s.heroEye}>CHOOSE YOUR PLAN</Text>
-          <Text style={s.heroTitle}>Built for beauty professionals</Text>
-          <Text style={s.heroSub}>Starter is free forever. Upgrade anytime to unlock more power.</Text>
-        </View>
-        {PLANS.map(plan => (
-          <View key={plan.id} style={[s.card, plan.dark && s.cardDark, plan.id === 'pro' && s.cardFeatured]}>
-            {plan.badge && <View style={[s.badge, plan.dark && { backgroundColor: Colors.rose }]}><Text style={s.badgeTxt}>{plan.badge}</Text></View>}
-            <View style={s.planHeader}>
-              <Text style={s.planEmoji}>{plan.emoji}</Text>
-              <View style={{ flex: 1 }}>
-                <Text style={[s.planName, plan.dark && { color: '#FDE8EF' }]}>{plan.name}</Text>
-                <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4 }}>
-                  <Text style={[s.price, { color: plan.dark ? '#F2A7BB' : plan.color }]}>{plan.price}</Text>
-                  <Text style={[s.priceSub, plan.dark && { color: 'rgba(255,255,255,0.5)' }]}>{plan.sub}</Text>
-                </View>
-              </View>
-            </View>
-            {plan.features.map((f, i) => (
-              <View key={i} style={s.featureRow}>
-                <Text style={[s.featureCheck, plan.dark && { color: '#F2A7BB' }]}>✓</Text>
-                <Text style={[s.featureTxt, plan.dark && { color: 'rgba(255,255,255,0.75)' }]}>{f}</Text>
-              </View>
-            ))}
-            {plan.id !== 'starter' && plan.id !== currentTier && (
-              <TouchableOpacity
-                style={[s.cta, { backgroundColor: plan.dark ? Colors.rose : plan.color }, plan.id === 'pro' && s.ctaGlow]}
-                onPress={() => handlePlanAction(plan.id)}
-              >
-                <Text style={s.ctaTxt}>{getPlanLabel(plan.id)}</Text>
-              </TouchableOpacity>
-            )}
-            {plan.id === currentTier && (
-              <View style={[s.cta, { backgroundColor: 'rgba(0,0,0,0.08)' }]}>
-                <Text style={[s.ctaTxt, { color: plan.dark ? 'rgba(255,255,255,0.5)' : Colors.soft }]}>✓ Current Plan</Text>
-              </View>
-            )}
-          </View>
-        ))}
-        <View style={{ height: 40 }} />
-      </ScrollView>
-    </View>
-  );
-}
-
 const s = StyleSheet.create({
   container:   { flex: 1, backgroundColor: Colors.cream },
   topBar:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: Colors.border },

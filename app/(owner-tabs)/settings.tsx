@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { useAuth } from '../hooks/useAuth';
+import { useBiometricAuth } from '../hooks/useBiometricAuth';
 import { OwnerApi, SettingsApi, API_URL } from '../services/ApiService';
 import Colors from '../../constants/Colors';
 
@@ -35,6 +36,7 @@ export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { token, signOut } = useAuth();
+  const bio = useBiometricAuth();
   const [user, setUser] = useState<any>(null);
   const [settings, setSettings] = useState<any>(null);
   const [brandSlug, setBrandSlug] = useState('');
@@ -183,6 +185,21 @@ export default function SettingsScreen() {
 
         {/* Sign Out */}
         <View style={[s.group, { marginTop: 8 }]}>
+          {bio.available && bio.hasSavedCredentials && (
+            <Row
+              icon="🔓"
+              label={`Disable ${bio.biometricLabel}`}
+              sub={`Remove saved ${bio.biometricLabel} credentials from this device`}
+              onPress={() => Alert.alert(
+                `Disable ${bio.biometricLabel}?`,
+                'You will need to enter your password next time.',
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  { text: 'Disable', style: 'destructive', onPress: async () => { await bio.clearCredentials(); Alert.alert('Done', `${bio.biometricLabel} disabled.`); } },
+                ],
+              )}
+            />
+          )}
           <Row icon="🚪" label="Sign Out" onPress={confirmSignOut} danger />
         </View>
 

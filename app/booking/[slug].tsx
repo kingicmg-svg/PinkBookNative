@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet, TextInput,
   ActivityIndicator, Alert, KeyboardAvoidingView, Platform,
-  Animated, PanResponder, Dimensions, Linking,
+  Animated, PanResponder, Dimensions, Linking, Image,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -192,7 +192,7 @@ function StepDots({ total, current, D }: { total: number; current: number; D: Re
 }
 
 // ── Business header ────────────────────────────────────────────────────────
-function BizHeader({ biz, D }: { biz: any; D: ReturnType<typeof palette> }) {
+function BizHeader({ biz, D, brandFont }: { biz: any; D: ReturnType<typeof palette>; brandFont?: string }) {
   const name     = biz?.businessName || biz?.business_name || 'Book Appointment';
   const initials = name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase();
   const rating   = biz?.avgRating || biz?.avg_rating;
@@ -200,13 +200,19 @@ function BizHeader({ biz, D }: { biz: any; D: ReturnType<typeof palette> }) {
   const category = biz?.serviceCategory || biz?.service_category;
   const city     = biz?.city;
   const bio      = biz?.bio;
+  const logoUrl  = biz?.logoUrl || biz?.logo_url || biz?.logo || null;
+  const fontFamily = brandFont || 'Georgia';
   return (
     <View style={[hdr.card, { backgroundColor: D.bgCard, borderColor: D.borderMid }]}>
-      <View style={[hdr.avatar, { backgroundColor: D.pink }]}>
-        <Text style={hdr.initials}>{initials}</Text>
-      </View>
+      {logoUrl ? (
+        <Image source={{ uri: logoUrl }} style={hdr.logo} resizeMode="cover" />
+      ) : (
+        <View style={[hdr.avatar, { backgroundColor: D.pink }]}>
+          <Text style={hdr.initials}>{initials}</Text>
+        </View>
+      )}
       <View style={{ flex: 1 }}>
-        <Text style={[hdr.name, { color: BASE.textPrimary }]} numberOfLines={1}>{name}</Text>
+        <Text style={[hdr.name, { color: BASE.textPrimary, fontFamily }]} numberOfLines={1}>{name}</Text>
         <View style={hdr.meta}>
           {!!category && <Text style={[hdr.tag, { borderColor: D.borderMid, color: D.pink }]}>{category}</Text>}
           {!!city && <Text style={[hdr.city, { color: BASE.textSec }]}>📍 {city}</Text>}
@@ -225,6 +231,7 @@ function BizHeader({ biz, D }: { biz: any; D: ReturnType<typeof palette> }) {
 const hdr = StyleSheet.create({
   card:     { flexDirection: 'row', gap: 14, backgroundColor: '#1A1014', borderRadius: 16, padding: 16, marginHorizontal: 16, marginTop: 8, marginBottom: 4, borderWidth: 1 },
   avatar:   { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center' },
+  logo:     { width: 56, height: 56, borderRadius: 12, backgroundColor: '#2a1a20' },
   initials: { fontSize: 20, fontWeight: '900', color: BASE.white },
   name:     { fontSize: 17, fontWeight: '900', fontFamily: 'Georgia', marginBottom: 4 },
   meta:     { flexDirection: 'row', gap: 8, alignItems: 'center', marginBottom: 4 },
@@ -360,6 +367,7 @@ export default function BookingScreen() {
   const [gallery,    setGallery]    = useState<any[]>([]);
   const [bannerDismissed, setBannerDismissed] = useState(false);
   const [D,          setD]          = useState(palette());
+  const [brandFont,  setBrandFont]  = useState('Georgia');
 
   // ── Booking state ─────────────────────────────────────────────────────
   const [step,          setStep]          = useState(0);
@@ -487,6 +495,7 @@ export default function BookingScreen() {
         const accent  = biz.primaryColor || biz.primary_color || '#D4417A';
         const accentL = biz.accentColor  || biz.accentColorLight || '#FDE8EF';
         setD(palette(accent, accentL));
+        if (biz.displayFont || biz.display_font) setBrandFont(biz.displayFont || biz.display_font);
         const ownerId = biz.ownerId || biz.owner_id || '';
         if (ownerId) {
           BookingApi.settings(ownerId)
@@ -619,7 +628,7 @@ export default function BookingScreen() {
           : {}),
       });
 
-      setConfId(r?.booking?.id || r?.id || '');
+      setConfId(r?.booking?.id || (r as any)?.id || '');
       setConfToken(r?.booking?.manageToken || r?.booking?.manage_token || '');
       setConfirmed(true);
     } catch (e: any) {
@@ -674,7 +683,7 @@ export default function BookingScreen() {
           waxArea:      texture || undefined,
         } : {}),
       });
-      setConfId(r?.booking?.id || r?.id || '');
+      setConfId(r?.booking?.id || (r as any)?.id || '');
       setConfToken(r?.booking?.manageToken || r?.booking?.manage_token || '');
       setConfirmed(true);
     } catch (e: any) {
@@ -1209,7 +1218,7 @@ export default function BookingScreen() {
             onScrollBeginDrag={() => { scrollAtTop.current = false; }}
             onMomentumScrollEnd={e => { scrollAtTop.current = e.nativeEvent.contentOffset.y <= 4; }}
             scrollEventThrottle={16}>
-            <BizHeader biz={business} D={D} />
+            <BizHeader biz={business} D={D} brandFont={brandFont} />
             <View style={{ paddingHorizontal: 16, paddingTop: 16 }}>
               {step === 0 && <ProviderShowcase business={business} gallery={gallery} D={D} bannerDismissed={bannerDismissed} onDismiss={() => setBannerDismissed(true)} />}
               {renderContent()}

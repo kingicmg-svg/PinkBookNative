@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { useStripe, usePaymentSheet } from '@stripe/stripe-react-native';
+import { useStripe, usePaymentSheet as useStripePaymentSheet } from '@stripe/stripe-react-native';
 import { PinbookPaymentsApi } from '../services/ApiService';
 import { useAuth } from './useAuth';
 
@@ -17,8 +17,8 @@ export interface PaymentSheetOptions {
  */
 export function usePaymentSheet() {
   const { token } = useAuth();
-  const { initPaymentSheet, presentPaymentSheet } = usePaymentSheet();
-  const { retrievePaymentIntentClientSecret } = useStripe();
+  const { initPaymentSheet, presentPaymentSheet } = useStripePaymentSheet();
+  const { retrievePaymentIntent } = useStripe();
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
