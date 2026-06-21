@@ -305,7 +305,16 @@ export default function DashboardScreen() {
           <Text style={{ fontSize: 11 }}>{tierMeta.emoji}</Text>
           <Text style={[s.tierPillTxt, { color: tierMeta.color }]}>{tierMeta.label}</Text>
         </View>
-        <TouchableOpacity style={s.bellBtn} onPress={() => router.push('/owner/notifications')}>
+        <TouchableOpacity
+          style={s.bellBtn}
+          onPress={() => {
+            if (tier === 'starter') {
+              Alert.alert('Pro Feature', 'Email and SMS notifications are available on the Pro plan. Upgrade to configure notification channels and reminder timing.');
+              return;
+            }
+            router.push('/owner/notifications');
+          }}
+        >
           <Ionicons name="notifications-outline" size={22} color={Colors.charcoal} />
           {notifCount > 0 && (
             <View style={s.bellBadge}><Text style={s.bellBadgeTxt}>{notifCount}</Text></View>
