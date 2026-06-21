@@ -274,6 +274,32 @@ export const OwnerApi = {
 
   getIntakeResponses: (token: string, bookingId: string) =>
     request<{ responses: any[] }>(`/api/v1/intake/responses/${bookingId}`, {}, token),
+
+  // ── AI Intelligence & Smart Scheduling ──
+  getScheduleInsights: (token: string) =>
+    request<{
+      busiestDay: string | null;
+      busiestCount: number;
+      atRiskCount: number;
+      topService: string | null;
+      topServiceCount: number;
+      thisWeek: number;
+      lastWeek: number;
+      velocityChange: number | null;
+      totalBookings: number;
+    }>('/api/v1/schedule/insights', {}, token),
+
+  getScheduleHeatmap: (token: string, start: string, days?: number) =>
+    request<{ heatmap: any[] }>(`/api/v1/schedule/heatmap?start=${start}&days=${days || 42}`, {}, token),
+
+  getScheduleGaps: (token: string, date: string) =>
+    request<{ gaps: any[] }>(`/api/v1/schedule/gaps?date=${date}`, {}, token),
+
+  getClientSignals: (token: string) =>
+    request<{ signals: any[] }>('/api/v1/intelligence/signals', {}, token),
+
+  getClientAIInsights: (token: string, clientId: string) =>
+    request<{ signals: any[]; preferences: any }>(`/api/v1/intelligence/clients/${clientId}`, {}, token),
 };
 
 // ── Payments (booking deposits, native PaymentSheet) ─────────────────────

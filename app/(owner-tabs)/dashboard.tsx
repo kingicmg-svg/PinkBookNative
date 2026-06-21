@@ -4,8 +4,6 @@ import {
   ActivityIndicator,
   Alert,
   Clipboard,
-  FlatList,
-  Image,
   Modal,
   RefreshControl,
   ScrollView,
@@ -106,8 +104,7 @@ export default function DashboardScreen() {
   const [overview, setOverview]   = useState<any>(null);
   const [byService, setByService] = useState<any[]>([]);
   const [badges, setBadges]       = useState<any[]>([]);
-  const [brandProfile, setBrandProfile] = useState<any>(null);
-  const [qrDataUrl, setQrDataUrl] = useState<string>('');
+  const [aiInsights, setAiInsights] = useState<any>(null);
   const [bookingUrl, setBookingUrl] = useState<string>('');
   const [loading, setLoading]     = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -121,46 +118,40 @@ export default function DashboardScreen() {
   const [badgeAdding, setBadgeAdding] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
 
-  // Widget embed modal
-  const [showWidget, setShowWidget] = useState(false);
-
   const load = useCallback(async (isRefresh = false) => {
     if (!token) return;
     if (!isRefresh) setLoading(true);
     try {
-      const [meRes, stRes, bookRes, brandRes] = await Promise.allSettled([
+      const [meRes, stRes, bookRes] = await Promise.allSettled([
         OwnerApi.me(token),
         SettingsApi.get(token),
         OwnerApi.bookings(token),
-        OwnerApi.brandProfile(token),
       ]);
       const u = meRes.status === 'fulfilled' ? meRes.value.user : null;
       const st = stRes.status === 'fulfilled' ? (stRes.value as any)?.settings : null;
       const bk = bookRes.status === 'fulfilled' ? bookRes.value.bookings : [];
-      const bp = brandRes.status === 'fulfilled' ? brandRes.value.data : null;
 
       setUser(u);
       setSettings(st);
       setBookings(bk || []);
-      setBrandProfile(bp);
 
       const ownerId = u?.id || u?.owner_id || '';
-      const slug = bp?.booking_slug || st?.bookingSlug || st?.booking_slug || '';
+      const slug = st?.bookingSlug || st?.booking_slug || '';
       const displayName = st?.studioName || u?.name || '';
       const url = buildBookingUrl(ownerId, slug, displayName);
       setBookingUrl(url);
 
-      // Load analytics, badges, QR in parallel
-      const [analyticsRes, serviceRes, badgesRes, qrRes] = await Promise.allSettled([
+      // Load analytics, badges, AI insights in parallel
+      const [analyticsRes, serviceRes, badgesRes, aiRes] = await Promise.allSettled([
         OwnerApi.analyticsOverview(token),
         OwnerApi.analyticsByService(token),
         OwnerApi.listBadges(token),
-        OwnerApi.getQrCode(url),
+        OwnerApi.getScheduleInsights(token),
       ]);
       if (analyticsRes.status === 'fulfilled') setOverview(analyticsRes.value);
       if (serviceRes.status === 'fulfilled') setByService(serviceRes.value.services || []);
       if (badgesRes.status === 'fulfilled') setBadges(badgesRes.value.badges || []);
-      if (qrRes.status === 'fulfilled') setQrDataUrl(qrRes.value.qr || '');
+      if (aiRes.status === 'fulfilled') setAiInsights(aiRes.value);
     } catch {}
     finally {
       setLoading(false);
@@ -264,27 +255,6 @@ export default function DashboardScreen() {
     }
   };
 
-  const copyInstagramCaption = async () => {
-    const caption = `Book your appointment with me!\n👇 Tap the link in my bio to book\n\n${bookingUrl}\n\n#beauty #bookinglink #pinkbook`;
-    try {
-      await Clipboard.setString(caption);
-      Alert.alert('Copied!', 'Instagram caption copied. Paste it in your bio or story.');
-    } catch {
-      await Share.share({ message: caption });
-    }
-  };
-
-  const widgetEmbedCode = `<!-- PinkBook Booking Widget -->
-<div style="text-align:center;margin:20px 0;">
-  <a href="${bookingUrl}" target="_blank" rel="noopener"
-    style="display:inline-block;background:linear-gradient(135deg,#C85D7A,#F2A7BB);
-    color:#fff;padding:14px 32px;border-radius:30px;text-decoration:none;
-    font-family:sans-serif;font-weight:600;font-size:16px;
-    box-shadow:0 4px 14px rgba(200,93,122,0.35);">
-    Book Now
-  </a>
-</div>`;
-
   if (loading) {
     return (
       <View style={[s.center, { paddingTop: insets.top }]}>
@@ -351,7 +321,73 @@ export default function DashboardScreen() {
           )}
         </View>
 
-        {/* ── QUICK ACTIONS ── */}
+                {/* ── SMART INSIGHTS ── */}
+        <View style={s.card}>
+          <SectionHeader title="Smart Insights ✨" action="Full Report →" onAction={() => router.push('/(owner-tabs)/finances')} />
+          <View style={s.insightGrid}>
+            {/* Booking velocity */}
+            <View style={[s.insightItem, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flex: 2, minWidth: '100%' }]}>
+              <View>
+                <Text style={s.insightValue}>
+                  {aiInsights?.thisWeek ?? bookingsMonth ?? 0} bookings this week
+                </Text>
+                <Text style={s.insightLabel}>
+                  {aiInsights?.velocityChange != null
+                    ? `${aiInsights.velocityChange > 0 ? '↑' : '↓'} ${Math.abs(aiInsights.velocityChange)}% vs last week`
+                    : 'Booking velocity'}
+                </Text>
+              </View>
+              {aiInsights?.velocityChange != null && (
+                <Text style={{ fontSize: 28, color: aiInsights.velocityChange >= 0 ? Colors.success : Colors.error }}>
+                  {aiInsights.velocityChange >= 0 ? '📈' : '📉'}
+                </Text>
+              )}
+            </View>
+            {/* Revenue */}
+            <View style={s.insightItem}>
+              <Text style={s.insightValue}>${(revenueMonth / 100).toLocaleString('en-US', { minimumFractionDigits: 0 })}</Text>
+              <Text style={s.insightLabel}>Revenue (month)</Text>
+            </View>
+            {/* Total bookings */}
+            <View style={s.insightItem}>
+              <Text style={s.insightValue}>{aiInsights?.totalBookings ?? bookingsMonth ?? 0}</Text>
+              <Text style={s.insightLabel}>Total bookings (all time)</Text>
+            </View>
+            {/* Busiest day */}
+            {(aiInsights?.busiestDay || busiestDay) && (
+              <View style={s.insightItem}>
+                <Text style={s.insightValue}>📅 {aiInsights?.busiestDay ?? busiestDay}</Text>
+                <Text style={s.insightLabel}>Busiest day{aiInsights?.busiestCount ? ` (${aiInsights.busiestCount} avg)` : ''}</Text>
+              </View>
+            )}
+            {/* Top service */}
+            {(aiInsights?.topService || topService) && (
+              <View style={s.insightItem}>
+                <Text style={s.insightValue} numberOfLines={1}>
+                  💅 {aiInsights?.topService ?? (topService?.serviceName || topService?.service_name || topService?.name)}
+                </Text>
+                <Text style={s.insightLabel}>
+                  Top service{aiInsights?.topServiceCount ? ` (${aiInsights.topServiceCount} bookings)` : ''}
+                </Text>
+              </View>
+            )}
+          </View>
+          {/* At-risk client warning */}
+          {aiInsights?.atRiskCount > 0 && (
+            <View style={s.atRiskBanner}>
+              <Text style={s.atRiskEmoji}>⚠️</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={s.atRiskTitle}>{aiInsights.atRiskCount} client{aiInsights.atRiskCount > 1 ? 's' : ''} may need re-engagement</Text>
+                <Text style={s.atRiskSub}>These clients haven't booked recently. Consider sending a campaign.</Text>
+              </View>
+              <TouchableOpacity onPress={() => router.push('/owner/campaigns')}>
+                <Text style={s.atRiskCta}>Send →</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+
+{/* ── QUICK ACTIONS ── */}
         <View style={s.card}>
           <Text style={s.cardTitle}>Quick Actions</Text>
           <View style={s.quickGrid}>
@@ -368,6 +404,20 @@ export default function DashboardScreen() {
             ))}
           </View>
         </View>
+
+        {/* ── UPCOMING THIS WEEK ── */}
+        {upcomingBookings.length > 0 && (
+          <View style={s.card}>
+            <SectionHeader
+              title="Upcoming This Week"
+              action="Calendar →"
+              onAction={() => router.push('/(owner-tabs)/calendar')}
+            />
+            {upcomingBookings.map((b, i) => (
+              <BookingRow key={b.id || i} booking={b} showDate />
+            ))}
+          </View>
+        )}
 
         {/* ── STATUS & BADGES ── */}
         <View style={s.card}>
@@ -447,107 +497,7 @@ export default function DashboardScreen() {
           )}
         </View>
 
-        {/* ── UPCOMING THIS WEEK ── */}
-        {upcomingBookings.length > 0 && (
-          <View style={s.card}>
-            <SectionHeader
-              title="Upcoming This Week"
-              action="Calendar →"
-              onAction={() => router.push('/(owner-tabs)/calendar')}
-            />
-            {upcomingBookings.map((b, i) => (
-              <BookingRow key={b.id || i} booking={b} showDate />
-            ))}
-          </View>
-        )}
-
-        {/* ── SMART INSIGHTS ── */}
-        <View style={s.card}>
-          <SectionHeader title="Smart Insights" action="Full Report →" onAction={() => router.push('/(owner-tabs)/finances')} />
-          <View style={s.insightGrid}>
-            <View style={s.insightItem}>
-              <Text style={s.insightValue}>${(revenueMonth / 100).toLocaleString('en-US', { minimumFractionDigits: 0 })}</Text>
-              <Text style={s.insightLabel}>Revenue (month)</Text>
-            </View>
-            <View style={s.insightItem}>
-              <Text style={s.insightValue}>{bookingsMonth}</Text>
-              <Text style={s.insightLabel}>Bookings (month)</Text>
-            </View>
-            {topService && (
-              <View style={[s.insightItem, { flex: 1, width: '100%' }]}>
-                <Text style={s.insightValue}>💅 {topService.serviceName || topService.service_name || topService.name}</Text>
-                <Text style={s.insightLabel}>Most-booked service ({topService.count || topService.booking_count} bookings)</Text>
-              </View>
-            )}
-            {busiestDay && (
-              <View style={[s.insightItem, { flex: 1, width: '100%' }]}>
-                <Text style={s.insightValue}>📅 {busiestDay}</Text>
-                <Text style={s.insightLabel}>Your busiest day</Text>
-              </View>
-            )}
-          </View>
-        </View>
-
-        {/* ── GROW YOUR BUSINESS ── */}
-        <View style={s.card}>
-          <SectionHeader title="Grow Your Business" />
-
-          {/* QR Code */}
-          <View style={s.growSection}>
-            <Text style={s.growLabel}>📲 Your Booking QR Code</Text>
-            <Text style={s.growSub}>Let clients scan and book instantly.</Text>
-            {qrDataUrl ? (
-              <View style={s.qrBox}>
-                <Image source={{ uri: qrDataUrl }} style={s.qrImage} resizeMode="contain" />
-              </View>
-            ) : (
-              <View style={s.qrBox}>
-                <ActivityIndicator color={Colors.rose} />
-              </View>
-            )}
-            <TouchableOpacity style={s.growBtn} onPress={copyBookingLink}>
-              <Ionicons name="copy-outline" size={16} color={Colors.white} />
-              <Text style={s.growBtnTxt}>Copy Booking Link</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Instagram */}
-          <View style={s.growSection}>
-            <Text style={s.growLabel}>📸 Instagram "Book Now" Link</Text>
-            <Text style={s.growSub}>Copy a caption with your link to paste in your bio or story.</Text>
-            <View style={s.growLinkBox}>
-              <Text style={s.growLinkTxt} numberOfLines={1}>{bookingUrl || 'Set up your profile to get a link'}</Text>
-            </View>
-            <View style={{ flexDirection: 'row', gap: 8 }}>
-              <TouchableOpacity style={[s.growBtn, { flex: 1 }]} onPress={copyInstagramCaption}>
-                <Ionicons name="logo-instagram" size={16} color={Colors.white} />
-                <Text style={s.growBtnTxt}>Copy Caption + Link</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[s.growBtn, { flex: 1, backgroundColor: Colors.charcoal }]}
-                onPress={copyBookingLink}
-              >
-                <Ionicons name="link-outline" size={16} color={Colors.white} />
-                <Text style={s.growBtnTxt}>Copy Link Only</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* Website Widget */}
-          <View style={s.growSection}>
-            <Text style={s.growLabel}>🔗 Website Booking Widget</Text>
-            <Text style={s.growSub}>Paste this HTML on your website to add a Book Now button.</Text>
-            <TouchableOpacity style={s.widgetCodeBox} onPress={() => setShowWidget(true)}>
-              <Text style={s.widgetCodeTxt} numberOfLines={4}>{widgetEmbedCode}</Text>
-              <View style={s.widgetTap}>
-                <Ionicons name="code-slash-outline" size={14} color={Colors.rose} />
-                <Text style={s.widgetTapTxt}>Tap to view & copy</Text>
-              </View>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        <View style={{ height: 40 }} />
+                <View style={{ height: 40 }} />
       </ScrollView>
 
       {/* ── Emoji Picker Modal ── */}
@@ -564,33 +514,6 @@ export default function DashboardScreen() {
             </View>
           </View>
         </TouchableOpacity>
-      </Modal>
-
-      {/* ── Widget Code Modal ── */}
-      <Modal visible={showWidget} transparent animationType="slide" onRequestClose={() => setShowWidget(false)}>
-        <View style={s.modalOverlay}>
-          <View style={s.widgetModal}>
-            <View style={s.widgetModalHeader}>
-              <Text style={s.emojiModalTitle}>Website Widget Code</Text>
-              <TouchableOpacity onPress={() => setShowWidget(false)}>
-                <Ionicons name="close" size={22} color={Colors.charcoal} />
-              </TouchableOpacity>
-            </View>
-            <ScrollView style={{ flex: 1, marginVertical: 12 }}>
-              <Text style={s.widgetFullCode}>{widgetEmbedCode}</Text>
-            </ScrollView>
-            <TouchableOpacity
-              style={[s.growBtn, { marginHorizontal: 0 }]}
-              onPress={async () => {
-                try { await Clipboard.setString(widgetEmbedCode); Alert.alert('Copied!', 'Embed code copied to clipboard.'); }
-                catch { await Share.share({ message: widgetEmbedCode }); }
-              }}
-            >
-              <Ionicons name="copy-outline" size={16} color={Colors.white} />
-              <Text style={s.growBtnTxt}>Copy Embed Code</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
       </Modal>
     </View>
   );
@@ -659,6 +582,11 @@ const s = StyleSheet.create({
   insightItem:  { flex: 1, minWidth: '45%', backgroundColor: Colors.cream, borderRadius: 12, padding: 12 },
   insightValue: { fontSize: 18, fontWeight: '900', color: Colors.charcoal, marginBottom: 2 },
   insightLabel: { fontSize: 11, color: Colors.soft, fontWeight: '600' },
+  atRiskBanner: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#FFF8E1', borderRadius: 12, padding: 12, marginTop: 12, borderWidth: 1, borderColor: '#FFD54F' },
+  atRiskEmoji:  { fontSize: 22 },
+  atRiskTitle:  { fontSize: 13, fontWeight: '800', color: '#795548', marginBottom: 2 },
+  atRiskSub:    { fontSize: 11, color: '#A1887F' },
+  atRiskCta:    { fontSize: 13, fontWeight: '900', color: Colors.rose },
 
   // Grow
   growSection:  { marginBottom: 20, paddingBottom: 20, borderBottomWidth: 1, borderBottomColor: Colors.border },
