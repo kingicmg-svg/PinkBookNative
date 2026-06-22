@@ -6,9 +6,10 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
 import { useAuth } from '../hooks/useAuth';
 import { useGoogleAuth } from '../hooks/useGoogleAuth';
-import { OwnerApi, SettingsApi } from '../services/ApiService';
+import { OwnerApi, SettingsApi, API_URL } from '../services/ApiService';
 import Colors from '../../constants/Colors';
 
 const C = Colors;
@@ -26,6 +27,13 @@ const PROFESSIONS = [
 const ACCOUNT_TYPES = [
   { id: 'independent', emoji: '🧑‍🎨', label: 'Independent', sub: 'Solo pro' },
   { id: 'salon',       emoji: '🏢',   label: 'Salon / Studio', sub: 'Team & multi-stylist' },
+];
+
+const TIERS = [
+  { id: 'starter',      emoji: '🌸', label: 'Starter',       price: 'Free',  sub: 'Forever free', note: 'Up to 20 bookings/mo · basic catalog · e-transfer',          color: '#9CA3AF' },
+  { id: 'pro',          emoji: '💜', label: 'Pro',           price: '$24',   sub: '/month',       note: 'Unlimited bookings · Stripe · receipts · branded emails',     color: '#C85D7A' },
+  { id: 'salon',        emoji: '👑', label: 'Salon',         price: '$79',   sub: '/month',       note: 'Multi-stylist team · shared calendar · priority support',     color: '#7C3AED' },
+  { id: 'studio_elite', emoji: '⭐', label: 'Studio Elite',  price: '$149',  sub: '/month',       note: 'White-label · custom domain · full gallery · branded app',   color: '#1C1C1E' },
 ];
 
 const TIMEZONES = [
@@ -57,12 +65,17 @@ export default function OwnerRegisterScreen() {
   const [phone,    setPhone]    = useState('');
 
   // Step 3 — location
-  const [city,     setCity]     = useState('');
-  const [province, setProvince] = useState('');
+  const [streetAddress, setStreetAddress] = useState('');
+  const [city,          setCity]          = useState('');
+  const [province,      setProvince]      = useState('');
+  const [postalCode,    setPostalCode]    = useState('');
 
   // Step 4 — timezone (auto-detected)
   const [timezone, setTimezone] = useState('');
   const [showTzPicker, setShowTzPicker] = useState(false);
+
+  // Plan
+  const [selectedTier, setSelectedTier] = useState<string>('starter');
 
   // Terms
   const [acceptTerms, setAcceptTerms] = useState(false);
@@ -93,7 +106,7 @@ export default function OwnerRegisterScreen() {
         await signIn(res.token);
         // Save onboarding data
         if (profession || city || timezone) {
-          await SettingsApi.save(res.token, { profession, city, province: province.trim(), timezone }).catch(() => {});
+          await SettingsApi.save(res.token, { profession, streetAddress: streetAddress.trim(), city, province: province.trim(), postalCode: postalCode.trim(), timezone }).catch(() => {});
         }
         router.replace('/(owner-tabs)/calendar');
       } catch (e: any) { setError(e.message || 'Google sign-in failed'); }
@@ -106,28 +119,56 @@ export default function OwnerRegisterScreen() {
     if (!name.trim()) { setError('Full name is required.'); return; }
     if (!email.trim()) { setError('Email is required.'); return; }
     if (!password || password.length < 8) { setError('Password must be at least 8 characters.'); return; }
+    if (!streetAddress.trim()) { setError('Street address is required.'); return; }
     if (!city.trim()) { setError('City is required.'); return; }
+    if (!postalCode.trim()) { setError('Postal / zip code is required.'); return; }
     if (!acceptTerms) { setError('Please accept the Terms & Privacy Policy to continue.'); return; }
 
     setLoading(true);
     setError(null);
     try {
       const res = await OwnerApi.register({
-        name:  name.trim(),
-        email: email.trim().toLowerCase(),
+        name:             name.trim(),
+        email:            email.trim().toLowerCase(),
         password,
-        phone: phone.trim(),
+        phone:            phone.trim(),
+        subscriptionTier: selectedTier,
       });
       if (!res.token) throw new Error('No token returned');
       await signIn(res.token);
+
       // Save onboarding fields to settings immediately after registration
       await SettingsApi.save(res.token, {
         profession,
         accountType,
-        city:     city.trim(),
-        province: province.trim(),
+        streetAddress: streetAddress.trim(),
+        city:          city.trim(),
+        province:      province.trim(),
+        postalCode:    postalCode.trim(),
         timezone,
+        subscriptionTier: selectedTier,
       }).catch(() => {});
+
+      // For paid tiers: open Stripe subscription checkout in the browser
+      const isPaid = ['pro', 'salon', 'studio_elite'].includes(selectedTier);
+      if (isPaid) {
+        try {
+          const appUrl = API_URL.replace(/\/$/, '');
+          const checkout = await OwnerApi.createSubscriptionCheckout(res.token, {
+            tier:       selectedTier,
+            interval:   'month',
+            currency:   'cad',
+            successUrl: `${appUrl}/pinkbook-signup.html?signup_paid=1&tier=${encodeURIComponent(selectedTier)}`,
+            cancelUrl:  `${appUrl}/pinkbook-signup.html?signup_paid=0`,
+          });
+          if (checkout && checkout.url) {
+            await WebBrowser.openBrowserAsync(checkout.url);
+          }
+        } catch {
+          // Non-fatal: account is created, payment can be done from settings later
+        }
+      }
+
       router.replace('/(owner-tabs)/calendar');
     } catch (e: any) {
       setError(e.message || 'Registration failed');
@@ -185,6 +226,34 @@ export default function OwnerRegisterScreen() {
           ))}
         </View>
 
+        {/* ── Choose Plan ── */}
+        <Text style={s.sectionLabel}>CHOOSE YOUR PLAN</Text>
+        <Text style={[s.sub, { marginTop: -8, marginBottom: 10 }]}>You can always upgrade later from your dashboard.</Text>
+        {TIERS.map(t => (
+          <TouchableOpacity
+            key={t.id}
+            style={[s.tierRow, selectedTier === t.id && { borderColor: t.color, backgroundColor: t.color + '10' }]}
+            onPress={() => setSelectedTier(t.id)}
+            activeOpacity={0.8}
+          >
+            <View style={[s.tierRadio, selectedTier === t.id && { borderColor: t.color, backgroundColor: t.color }]}>
+              {selectedTier === t.id && <View style={s.tierRadioDot} />}
+            </View>
+            <Text style={s.tierEmoji}>{t.emoji}</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={[s.tierLabel, selectedTier === t.id && { color: t.color }]}>{t.label}</Text>
+              <Text style={s.tierNote}>{t.note}</Text>
+            </View>
+            <View style={{ alignItems: 'flex-end' }}>
+              <Text style={[s.tierPrice, { color: t.color }]}>{t.price}</Text>
+              <Text style={s.tierSub}>{t.sub}</Text>
+            </View>
+          </TouchableOpacity>
+        ))}
+        <TouchableOpacity style={s.compareLink} onPress={() => router.push('/auth/plan-compare')}>
+          <Text style={s.compareLinkTxt}>📊 Compare all plans in detail →</Text>
+        </TouchableOpacity>
+
         {/* ── Name & Credentials ── */}
         <Text style={s.sectionLabel}>YOUR DETAILS</Text>
 
@@ -233,6 +302,17 @@ export default function OwnerRegisterScreen() {
         {/* ── Location ── */}
         <Text style={s.sectionLabel}>LOCATION</Text>
 
+        <Text style={s.label}>Street Address *</Text>
+        <TextInput
+          style={s.input}
+          placeholder="123 Main Street, Unit 4"
+          placeholderTextColor={C.soft}
+          value={streetAddress}
+          onChangeText={setStreetAddress}
+          autoCapitalize="words"
+          returnKeyType="next"
+        />
+
         <Text style={s.label}>City *</Text>
         <TextInput
           style={s.input}
@@ -241,6 +321,7 @@ export default function OwnerRegisterScreen() {
           value={city}
           onChangeText={setCity}
           autoCapitalize="words"
+          returnKeyType="next"
         />
 
         <Text style={s.label}>Province / State</Text>
@@ -251,6 +332,19 @@ export default function OwnerRegisterScreen() {
           value={province}
           onChangeText={setProvince}
           autoCapitalize="words"
+          returnKeyType="next"
+        />
+
+        <Text style={s.label}>Postal / Zip Code *</Text>
+        <TextInput
+          style={s.input}
+          placeholder="M5V 2T6"
+          placeholderTextColor={C.soft}
+          value={postalCode}
+          onChangeText={setPostalCode}
+          autoCapitalize="characters"
+          keyboardType="default"
+          returnKeyType="next"
         />
 
         {/* ── Timezone ── */}
@@ -358,6 +452,18 @@ const s = StyleSheet.create({
   checkmark:     { color: C.white, fontSize: 13, fontWeight: '800' },
   termsTxt:      { flex: 1, fontSize: 13, color: C.soft, lineHeight: 20 },
   termsLink:     { color: C.rose, fontWeight: '700' },
+
+  // Tier picker
+  tierRow:       { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: C.white, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 12, borderWidth: 1.5, borderColor: C.border, marginBottom: 8 },
+  tierRadio:     { width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: C.border, alignItems: 'center', justifyContent: 'center' },
+  tierRadioDot:  { width: 8, height: 8, borderRadius: 4, backgroundColor: C.white },
+  tierEmoji:     { fontSize: 18 },
+  tierLabel:     { fontSize: 14, fontWeight: '700', color: C.charcoal },
+  tierNote:      { fontSize: 11, color: C.soft, marginTop: 2, flexShrink: 1 },
+  tierPrice:     { fontSize: 14, fontWeight: '800' },
+  tierSub:       { fontSize: 11, color: C.soft },
+  compareLink:   { alignItems: 'center', paddingVertical: 10 },
+  compareLinkTxt:{ fontSize: 13, color: C.rose, fontWeight: '700' },
 
   // Buttons
   btn:           { backgroundColor: C.charcoal, borderRadius: 100, paddingVertical: 16, alignItems: 'center', marginBottom: 12 },

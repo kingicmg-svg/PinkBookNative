@@ -39,7 +39,7 @@ async function request<T>(
 
 // ── Owner auth ─────────────────────────────────────────────────────────────
 export const OwnerApi = {
-  register: (body: { name: string; email: string; password: string; phone?: string }) =>
+  register: (body: { name: string; email: string; password: string; phone?: string; subscriptionTier?: string }) =>
     request<{ user: any; token: string }>('/api/v1/auth/register', { method: 'POST', body: JSON.stringify(body) }),
 
   login: (body: { email: string; password: string }) =>
