@@ -3,7 +3,7 @@
  * Covers: Cancellation, Late Arrival, No-Show, Acknowledgment
  * Data saved to server via SettingsApi (key: bookingPolicy)
  */
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
   Switch, TextInput, Alert, ActivityIndicator,
@@ -37,6 +37,60 @@ const CANCEL_WINDOWS   = [{ v:'12',l:'12 hrs'},{v:'24',l:'24 hrs'},{v:'48',l:'48
 const LATE_ACTIONS     = [{ v:'shorten',l:'Shorten appt'},{v:'cancel',l:'May cancel'},{v:'stylist',l:'Stylist decides'}];
 const NOSHOW_FEE_TYPES = [{ v:'deposit',l:'Retain deposit'},{v:'custom',l:'Custom fee'},{v:'none',l:'No fee'}];
 const ENFORCE_TYPES    = [{ v:'manual',l:'Manual review'},{v:'auto',l:'Auto-charge'}];
+
+// ── PWA-parity helpers ─────────────────────────────────────────────────────
+const WINDOW_LABEL: Record<string,string> = {
+  '12':'12 hours','24':'24 hours','48':'48 hours','72':'72 hours','168':'1 week',
+  '12 hours':'12 hours','24 hours':'24 hours','48 hours':'48 hours','72 hours':'72 hours',
+};
+const DEPOSIT_LABEL: Record<string,string> = {
+  retain:'your deposit will be retained',
+  refund:'your deposit will be refunded',
+  partial:'a partial refund will be issued',
+};
+const EARLY_LABEL: Record<string,string> = {
+  refund:'your deposit will be fully refunded',
+  credit:'your deposit will be applied as a booking credit',
+  retain:'deposits are non-refundable',
+};
+
+function buildPreviewLines(p: BookingPolicy): string[] {
+  const lines: string[] = [];
+  if (p.cancelEnabled) {
+    const wl = WINDOW_LABEL[p.cancelWindow] || p.cancelWindow + ' hours';
+    const dl = DEPOSIT_LABEL[p.cancelDepositRule] || 'your deposit may be retained';
+    const el = EARLY_LABEL[p.cancelEarlyRule] || 'your deposit will be fully refunded';
+    lines.push(`Cancellation: Cancel at least ${wl} before your appointment. Within window: ${dl}. Outside window: ${el}.`);
+    if (p.rescheduleAllowed) {
+      const rw = WINDOW_LABEL[p.rescheduleWindow] || p.rescheduleWindow;
+      lines.push(`Rescheduling: You may reschedule up to ${rw} in advance without penalty.`);
+    }
+  }
+  if (p.lateEnabled) {
+    const action = ({shorten:'the appointment will be shortened accordingly',cancel:'the appointment may be cancelled',stylist:'the stylist will determine how to proceed'} as Record<string,string>)[p.lateAction] || 'the appointment may be affected';
+    lines.push(`Late Arrivals: ${p.gracePeriod}-minute grace period. Arrivals ${p.lateThreshold}+ minutes late: ${action}.`);
+  }
+  if (p.noshowEnabled) {
+    const fee = p.noshowFeeType==='custom' ? `a $${p.noshowFeeAmount} fee will be charged`
+      : p.noshowFeeType==='none' ? 'no additional fee will apply'
+      : 'your deposit will be retained as a no-show fee';
+    const enforce = p.noshowEnforce==='auto' ? 'Auto-charged.' : 'Subject to review.';
+    lines.push(`No-Shows: If you do not arrive, ${fee}. ${enforce}${p.blockRepeat ? ' Clients with 2+ no-shows may be blocked.' : ''}`);
+  }
+  return lines;
+}
+
+function buildAckText(p: BookingPolicy): string {
+  const wl = WINDOW_LABEL[p.cancelWindow] || '24 hours';
+  const dl = ({retain:'deposit retained',refund:'deposit refunded',partial:'partial refund'} as Record<string,string>)[p.cancelDepositRule] || 'deposit may be retained';
+  const parts: string[] = [];
+  if (p.cancelEnabled) parts.push(`cancellations within ${wl} will result in ${dl}`);
+  if (p.lateEnabled)   parts.push(`arrivals more than ${p.lateThreshold}+ minutes late may affect the appointment`);
+  if (p.noshowEnabled) parts.push('no-shows will incur a fee');
+  return parts.length
+    ? `By confirming this booking, you acknowledge the following policies: ${parts.join('; ')}.`
+    : 'I have read and agree to the booking and cancellation policy.';
+}
 
 // ── Chips ──────────────────────────────────────────────────────────────────
 function Chips({ options, value, onSelect }: { options:{v:string;l:string}[]; value:string; onSelect:(v:string)=>void }) {
@@ -90,6 +144,8 @@ export default function PoliciesScreen() {
   const [policy, setPolicy] = useState<BookingPolicy>(DEFAULT_POLICY);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [saved,   setSaved]   = useState(false);
+  const hasEditedRef = useRef(false);
 
   // All hooks must be called before any conditional return (React Rules of Hooks).
   useEffect(() => {
@@ -100,7 +156,22 @@ export default function PoliciesScreen() {
       .finally(() => setLoading(false));
   }, [token]);
 
-  const patch = useCallback(<K extends keyof BookingPolicy>(k: K, v: BookingPolicy[K]) => setPolicy(p => ({ ...p, [k]: v })), []);
+  // Auto-save on any policy change (debounced 1.5 s) — matches PWA behavior.
+  useEffect(() => {
+    if (!hasEditedRef.current || !token || loading) return;
+    const timer = setTimeout(async () => {
+      try {
+        await SettingsApi.save(token, { bookingPolicy: { ...policy, ackText: buildAckText(policy) } });
+        setSaved(true);
+      } catch (_) {}
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, [policy, token, loading]);
+
+  const patch = useCallback(<K extends keyof BookingPolicy>(k: K, v: BookingPolicy[K]) => {
+    hasEditedRef.current = true;
+    setPolicy(p => ({ ...p, [k]: v }));
+  }, []);
 
   // Tier gate — after all hooks
   if (!tierLoading && !hasFeature('customPoliciesDeposits')) {
@@ -125,31 +196,15 @@ export default function PoliciesScreen() {
     if (!token) { Alert.alert('Not signed in'); return; }
     setSaving(true);
     try {
-      await SettingsApi.save(token, { bookingPolicy: policy });
+      await SettingsApi.save(token, { bookingPolicy: { ...policy, ackText: buildAckText(policy) } });
+      setSaved(true);
       Alert.alert('Policy Saved ✓', 'Your booking policy is active and will be shown to clients before they book.');
     } catch (e: any) {
       Alert.alert('Save Failed', e?.message || 'Could not save policy.');
     } finally { setSaving(false); }
   };
 
-  const summary = (() => {
-    const parts: string[] = [];
-    if (policy.cancelEnabled) {
-      const wl = CANCEL_WINDOWS.find(w=>w.v===policy.cancelWindow)?.l||'24 hrs';
-      const dl = {retain:'deposit retained',refund:'deposit refunded',partial:'partial refund'}[policy.cancelDepositRule]||'deposit may be retained';
-      parts.push(`Cancellations within ${wl}: ${dl}.`);
-    }
-    if (policy.lateEnabled) {
-      const al = LATE_ACTIONS.find(a=>a.v===policy.lateAction)?.l||'stylist decides';
-      parts.push(`Late ${policy.lateThreshold}+ min: ${al.toLowerCase()}.`);
-    }
-    if (policy.noshowEnabled) {
-      const fl = policy.noshowFeeType==='custom' ? `$${policy.noshowFeeAmount} no-show fee`
-        : policy.noshowFeeType==='none' ? 'no fee' : 'deposit retained as no-show fee';
-      parts.push(`No-show: ${fl}.`);
-    }
-    return parts.length ? parts.join(' ') : 'Standard booking policies apply.';
-  })();
+  const previewLines = buildPreviewLines(policy);
 
   if (loading) return <View style={{flex:1,justifyContent:'center',alignItems:'center',backgroundColor:Colors.cream}}><ActivityIndicator color={Colors.rose} size="large"/></View>;
 
@@ -234,26 +289,38 @@ export default function PoliciesScreen() {
             <Chips options={[{v:'review',l:'At review step'},{v:'payment',l:'Before payment'},{v:'confirm',l:'At confirmation'}]}
               value={policy.ackTiming} onSelect={v => patch('ackTiming', v)} />
           </SettingRow>
-          <SettingRow label="Acknowledgment Text">
-            <TextInput style={[sc.numIn, {width:'100%',height:60,textAlignVertical:'top',paddingTop:8}]}
-              multiline value={policy.ackText} onChangeText={v => patch('ackText', v)} />
+          <SettingRow label="Client acknowledgment text" sub="Auto-generated from your active policies — shown as a checkbox at booking">
+            <Text style={[sc.rowSub, {fontStyle:'italic', lineHeight:18, marginTop:4}]}>{buildAckText(policy)}</Text>
           </SettingRow>
         </PolicyCard>
 
         {/* Preview */}
         <View style={s.preview}>
           <Text style={s.previewLabel}>✦ Policy Preview (shown to clients)</Text>
-          <Text style={s.previewText}>{summary}</Text>
+          {previewLines.length > 0
+            ? previewLines.map((line, i) => (
+                <Text key={i} style={[s.previewText, i < previewLines.length - 1 && {marginBottom:8}]}>{line}</Text>
+              ))
+            : <Text style={s.previewEmpty}>No active policies — enable at least one section above.</Text>
+          }
           {policy.ackEnabled && (
             <View style={s.ackRow}>
-              <View style={s.ackBox}/><Text style={s.ackText}>{policy.ackText}</Text>
+              <View style={s.ackBox}/>
+              <Text style={s.ackText}>{buildAckText(policy)}</Text>
             </View>
           )}
         </View>
 
+        {/* Status badge — shown after any save */}
+        {saved && (
+          <View style={s.savedBadge}>
+            <Text style={s.savedBadgeTxt}>● Policy is active &amp; published</Text>
+          </View>
+        )}
+
         {/* Save */}
         <TouchableOpacity style={[s.saveBtn, saving && {opacity:0.7}]} onPress={save} disabled={saving}>
-          {saving ? <ActivityIndicator color={Colors.white}/> : <Text style={s.saveTxt}>Save & Publish Policy</Text>}
+          {saving ? <ActivityIndicator color={Colors.white}/> : <Text style={s.saveTxt}>Save &amp; Publish Policy</Text>}
         </TouchableOpacity>
         <View style={{height:60}}/>
       </ScrollView>
@@ -286,9 +353,12 @@ const s = StyleSheet.create({
   preview:      {backgroundColor:'#FFF6FA', borderRadius:14, borderWidth:1, borderColor:Colors.border, padding:16, marginBottom:16},
   previewLabel: {fontSize:11, fontWeight:'700', color:Colors.rose, textTransform:'uppercase', letterSpacing:0.5, marginBottom:8},
   previewText:  {fontSize:13, color:Colors.mid, lineHeight:20},
+  previewEmpty: {fontSize:13, color:Colors.soft, fontStyle:'italic'},
   ackRow:       {flexDirection:'row', alignItems:'flex-start', gap:10, marginTop:12, paddingTop:12, borderTopWidth:1, borderTopColor:Colors.border},
   ackBox:       {width:18, height:18, borderRadius:5, borderWidth:2, borderColor:Colors.rose, marginTop:2},
   ackText:      {flex:1, fontSize:12, color:Colors.mid, lineHeight:18},
+  savedBadge:   {flexDirection:'row', justifyContent:'center', alignItems:'center', marginBottom:12, padding:10, backgroundColor:'#E8F5E9', borderRadius:12, borderWidth:1, borderColor:'#81C784'},
+  savedBadgeTxt:{fontSize:12, fontWeight:'700', color:'#388E3C'},
   saveBtn:      {backgroundColor:Colors.rose, borderRadius:100, padding:16, alignItems:'center', marginBottom:16, shadowColor:Colors.rose, shadowOffset:{width:0,height:4}, shadowOpacity:0.3, shadowRadius:8, elevation:4},
   saveTxt:      {color:Colors.white, fontWeight:'800', fontSize:15},
 });
