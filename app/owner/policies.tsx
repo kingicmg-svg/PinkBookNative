@@ -26,11 +26,11 @@ interface BookingPolicy {
 }
 const DEFAULT_POLICY: BookingPolicy = {
   cancelEnabled: true, cancelWindow: '24', cancelDepositRule: 'retain',
-  cancelEarlyRule: 'refund', rescheduleAllowed: true, rescheduleWindow: '24',
+  cancelEarlyRule: 'refund', rescheduleAllowed: true, rescheduleWindow: '24 hours',
   lateEnabled: true, gracePeriod: '10', lateThreshold: '15', lateAction: 'shorten',
   noshowEnabled: true, noshowFeeType: 'deposit', noshowFeeAmount: '50',
   noshowEnforce: 'manual', blockRepeat: false,
-  ackEnabled: true, ackTiming: 'step4',
+  ackEnabled: true, ackTiming: 'payment',
   ackText: 'I have read and agree to the booking and cancellation policy.',
 };
 const CANCEL_WINDOWS   = [{ v:'12',l:'12 hrs'},{v:'24',l:'24 hrs'},{v:'48',l:'48 hrs'},{v:'72',l:'72 hrs'},{v:'168',l:'1 week'}];
@@ -91,7 +91,18 @@ export default function PoliciesScreen() {
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // Tier gate — Policies require Pro plan
+  // All hooks must be called before any conditional return (React Rules of Hooks).
+  useEffect(() => {
+    if (!token) { setLoading(false); return; }
+    SettingsApi.get(token)
+      .then(r => { const p = r?.settings?.bookingPolicy; if (p) setPolicy({ ...DEFAULT_POLICY, ...p }); })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [token]);
+
+  const patch = useCallback(<K extends keyof BookingPolicy>(k: K, v: BookingPolicy[K]) => setPolicy(p => ({ ...p, [k]: v })), []);
+
+  // Tier gate — after all hooks
   if (!tierLoading && !hasFeature('customPoliciesDeposits')) {
     return (
       <View style={{ flex: 1, backgroundColor: Colors.cream, alignItems: 'center', justifyContent: 'center', padding: 32 }}>
@@ -109,16 +120,6 @@ export default function PoliciesScreen() {
       </View>
     );
   }
-
-  useEffect(() => {
-    if (!token) { setLoading(false); return; }
-    SettingsApi.get(token)
-      .then(r => { const p = r?.settings?.bookingPolicy; if (p) setPolicy({ ...DEFAULT_POLICY, ...p }); })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, [token]);
-
-  const patch = useCallback(<K extends keyof BookingPolicy>(k: K, v: BookingPolicy[K]) => setPolicy(p => ({ ...p, [k]: v })), []);
 
   const save = async () => {
     if (!token) { Alert.alert('Not signed in'); return; }
@@ -174,7 +175,7 @@ export default function PoliciesScreen() {
               value={policy.cancelDepositRule} onSelect={v => patch('cancelDepositRule', v)} />
           </SettingRow>
           <SettingRow label="Early Cancellation (outside window)">
-            <Chips options={[{v:'refund',l:'Full refund'},{v:'retain',l:'Retain deposit'}]}
+            <Chips options={[{v:'refund',l:'Full refund'},{v:'credit',l:'Booking credit'},{v:'retain',l:'Non-refundable'}]}
               value={policy.cancelEarlyRule} onSelect={v => patch('cancelEarlyRule', v)} />
           </SettingRow>
           <View style={{flexDirection:'row',justifyContent:'space-between',alignItems:'center'}}>
@@ -183,7 +184,7 @@ export default function PoliciesScreen() {
           </View>
           {policy.rescheduleAllowed && (
             <SettingRow label="Reschedule Window">
-              <Chips options={[{v:'24',l:'24 hrs'},{v:'48',l:'48 hrs'},{v:'72',l:'72 hrs'}]}
+              <Chips options={[{v:'12 hours',l:'12 hrs'},{v:'24 hours',l:'24 hrs'},{v:'48 hours',l:'48 hrs'}]}
                 value={policy.rescheduleWindow} onSelect={v => patch('rescheduleWindow', v)} />
             </SettingRow>
           )}
@@ -230,7 +231,7 @@ export default function PoliciesScreen() {
         <PolicyCard icon="✅" title="Policy Acknowledgment" sub="Require clients to agree before booking"
           enabled={policy.ackEnabled} onToggle={v => patch('ackEnabled', v)}>
           <SettingRow label="Show during booking">
-            <Chips options={[{v:'step4',l:'Before payment'},{v:'step5',l:'Final review'}]}
+            <Chips options={[{v:'review',l:'At review step'},{v:'payment',l:'Before payment'},{v:'confirm',l:'At confirmation'}]}
               value={policy.ackTiming} onSelect={v => patch('ackTiming', v)} />
           </SettingRow>
           <SettingRow label="Acknowledgment Text">
