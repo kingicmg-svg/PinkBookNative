@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Share, Linking, Image, Clipboard, Modal } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import * as Haptics from 'expo-haptics';
 import { useAuth } from '../hooks/useAuth';
@@ -11,16 +11,20 @@ import Colors from '../../constants/Colors';
 import { useTheme } from '../hooks/useTheme';
 import type { AppTheme } from '../../constants/Colors';
 
-const TIER_META: Record<string, { label: string; color: string; emoji: string }> = {
-  starter:      { label: 'Starter',      color: T.textSec, emoji: '🌸' },
-  pro:          { label: 'Pro',          color: T.rose, emoji: '💜' },
-  salon:        { label: 'Salon',        color: '#7C3AED',       emoji: '👑' },
-  studio_elite: { label: 'Studio Elite', color: T.textPrimary, emoji: '⭐' },
-  owner:        { label: 'Owner',        color: Colors.gold,     emoji: '🔑' },
-};
+function makeTierMeta(T: AppTheme): Record<string, { label: string; color: string; emoji: string }> {
+  return {
+    starter:      { label: 'Starter',      color: T.textSec, emoji: '🌸' },
+    pro:          { label: 'Pro',          color: T.rose, emoji: '💜' },
+    salon:        { label: 'Salon',        color: '#7C3AED',       emoji: '👑' },
+    studio_elite: { label: 'Studio Elite', color: T.textPrimary, emoji: '⭐' },
+    owner:        { label: 'Owner',        color: Colors.gold,     emoji: '🔑' },
+  };
+}
 
 interface RowProps { icon: string; label: string; sub?: string; onPress: () => void; danger?: boolean; badge?: string; }
 function Row({ icon, label, sub, onPress, danger, badge }: RowProps) {
+  const T = useTheme();
+  const s = React.useMemo(() => makeStyles(T), [T]);
   const handlePress = () => { Haptics.selectionAsync(); onPress(); };
   return (
     <TouchableOpacity style={s.row} onPress={handlePress}>
@@ -51,8 +55,9 @@ export default function SettingsScreen() {
   const [qrDataUrl, setQrDataUrl] = useState('');
   const [showWidget, setShowWidget] = useState(false);
 
-  useEffect(() => {
+  const loadData = useCallback(() => {
     if (!token) return;
+    setLoading(true);
     Promise.all([
       OwnerApi.me(token),
       SettingsApi.get(token),
@@ -67,7 +72,7 @@ export default function SettingsScreen() {
       setBrandSlug(sl);
       // Build booking URL and fetch QR
       const ownerId = u?.id || u?.owner_id || '';
-      const displayName = st?.studioName || u?.name || '';
+      const displayName = st?.studioName || st?.businessName || u?.name || '';
       const handle = displayName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'stylist';
       const url = sl
         ? `https://pinkbook.app/book/${sl}`
@@ -76,7 +81,12 @@ export default function SettingsScreen() {
     }).catch(() => {}).finally(() => setLoading(false));
   }, [token]);
 
+  // Reload on every screen focus so edits made in Edit Profile are immediately
+  // reflected (name, booking link, etc.).
+  useFocusEffect(loadData);
+
   const tier = user?.subscription_tier || user?.tier || settings?.subscriptionTier || settings?.subscription_tier || 'starter';
+  const TIER_META = makeTierMeta(T);
   const tierMeta = TIER_META[tier] || TIER_META.starter;
   const slug = brandSlug || settings?.bookingSlug || settings?.booking_slug || '';
   const bookingLink = slug ? `pinkbook.app/pinkbook-booking.html?name=${slug}` : null;

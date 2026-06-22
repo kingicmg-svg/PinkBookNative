@@ -140,7 +140,9 @@ export default function EditProfileScreen() {
     if (!token) return;
     setSaving(true); setError(null);
     try {
-      const settingsPayload: Record<string, any> = { studioName, bio, city, profession };
+      // Use 'businessName' so the public booking config endpoint picks it up
+      // (it reads settings.salonName || settings.businessName || settings.name).
+      const settingsPayload: Record<string, any> = { studioName, businessName: studioName, bio, city, profession };
 
       if (resetCatalog && PROFESSION_DEFAULTS[profession]) {
         const defs = PROFESSION_DEFAULTS[profession];
@@ -161,12 +163,12 @@ export default function EditProfileScreen() {
         OwnerApi.updateProfile(token, { name, phone }),
       ]);
 
-      // Sync service_category to brand_studio_profiles so Discovery shows
-      // the correct category without requiring a separate Brand Studio save.
-      const discoverCat = PROF_TO_CATEGORY[profession];
-      if (discoverCat) {
-        BrandStudioApi.saveProfile(token, { serviceCategory: discoverCat }).catch(() => {});
-      }
+      // Always sync both business name and service category to brand_studio_profiles
+      // so discovery listing and the booking page stay in sync after ANY profile save.
+      BrandStudioApi.saveProfile(token, {
+        businessName: studioName,
+        serviceCategory: PROF_TO_CATEGORY[profession],
+      }).catch(() => {});
 
       setOrigProf(profession);
       Alert.alert(

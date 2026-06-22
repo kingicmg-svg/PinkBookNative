@@ -1,5 +1,5 @@
 'use strict';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -15,7 +15,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../hooks/useAuth';
 import { OwnerApi, SettingsApi, API_URL } from '../services/ApiService';
@@ -64,6 +64,8 @@ const BADGE_EMOJIS = ['✨', '💅', '💜', '🔥', '⭐', '🌸', '👑', '�
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
 function SectionHeader({ title, action, onAction }: { title: string; action?: string; onAction?: () => void }) {
+  const T = useTheme();
+  const s = React.useMemo(() => makeStyles(T), [T]);
   return (
     <View style={s.sectionHeader}>
       <Text style={s.sectionTitle}>{title}</Text>
@@ -73,6 +75,8 @@ function SectionHeader({ title, action, onAction }: { title: string; action?: st
 }
 
 function BookingRow({ booking, showDate }: { booking: any; showDate?: boolean }) {
+  const T = useTheme();
+  const s = React.useMemo(() => makeStyles(T), [T]);
   const t = getBookingTime(booking);
   const client = booking.clientName || booking.client_name || booking.contactName || 'Client';
   const service = booking.serviceName || booking.service_name || booking.service || '';
@@ -163,7 +167,9 @@ export default function DashboardScreen() {
     }
   }, [token]);
 
-  useEffect(() => { load(); }, [load]);
+  // Reload whenever the screen comes into focus so name/settings changes made
+  // in Edit Profile are immediately reflected here.
+  useFocusEffect(load);
 
   const onRefresh = () => { setRefreshing(true); load(true); };
 
@@ -525,7 +531,7 @@ export default function DashboardScreen() {
 
 // ─── Styles ──────────────────────────────────────────────────────────────────
 
-const s = StyleSheet.create({ _: {} }); // unused — styles are dynamic via makeStyles
+// styles are dynamic via makeStyles — no global stub needed
 function makeStyles(T: AppTheme) { return StyleSheet.create({
   container:   { flex: 1, backgroundColor: T.bgBase },
   center:      { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: T.bgBase },
