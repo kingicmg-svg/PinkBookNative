@@ -4,6 +4,7 @@ import {
   KeyboardAvoidingView, Platform, ActivityIndicator, Alert, Image,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../hooks/useAuth';
@@ -25,6 +26,21 @@ const COLOR_PRESETS = [
   { name:'Plum',    primary:'#6B2D5E', accent:'#F5EEF4' },
 ];
 const STEPS = ['Identity','Visual','Booking Link','Your Voice','Gallery','Preview'];
+
+/**
+ * Reliably get a base64 string from a picker asset.
+ * expo-image-picker with allowsEditing:true on iOS 17+ can return base64=null
+ * even when base64:true is set (imageData is nullable in the Swift slow-path).
+ * Fall back to reading directly from the file URI via expo-file-system.
+ */
+async function asBase64(asset: { base64?: string | null; uri: string }): Promise<string> {
+  if (asset.base64) return asset.base64;
+  const b64 = await FileSystem.readAsStringAsync(asset.uri, {
+    encoding: FileSystem.EncodingType.Base64,
+  });
+  if (!b64) throw new Error('Could not read image data. Please try a different photo.');
+  return b64;
+}
 
 export default function BrandStudioScreen() {
   const insets = useSafeAreaInsets();
@@ -197,12 +213,17 @@ export default function BrandStudioScreen() {
     if (status !== 'granted') { Alert.alert('Permission needed', 'Allow photo library access to upload images.'); return; }
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
-      allowsEditing: true, quality: 0.75, base64: true,
+      allowsEditing: true, quality: 0.6, base64: true, exif: false,
     });
-    if (result.canceled || !result.assets[0]?.base64) return;
+    if (result.canceled || !result.assets[0]) return;
     setUploading(true);
     try {
-      const imageData = `data:image/jpeg;base64,${result.assets[0].base64}`;
+      const b64 = await asBase64(result.assets[0]);
+      if (b64.length > 5_000_000) {
+        Alert.alert('Image Too Large', 'Please choose a smaller image or crop it before uploading.');
+        return;
+      }
+      const imageData = `data:image/jpeg;base64,${b64}`;
       const r = await OwnerApi.brandGalleryUpload(token!, {
         imageData,
         caption: opts.caption || '',
@@ -420,10 +441,11 @@ export default function BrandStudioScreen() {
                   const result = await ImagePicker.launchImageLibraryAsync({
                     mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.85, base64: true,
                   });
-                  if (result.canceled || !result.assets[0]?.base64) return;
+                  if (result.canceled || !result.assets[0]) return;
                   setLogoUploading(true);
                   try {
-                    const imageData = `data:image/jpeg;base64,${result.assets[0].base64}`;
+                    const b64 = await asBase64(result.assets[0]);
+                    const imageData = `data:image/jpeg;base64,${b64}`;
                     const r = await OwnerApi.uploadLogo(token!, { imageData });
                     setLogoUrl(r.logoUrl);
                   } catch (e: any) { Alert.alert('Upload Failed', e.message || 'Please try again.'); }
@@ -505,10 +527,11 @@ export default function BrandStudioScreen() {
                       const result = await ImagePicker.launchImageLibraryAsync({
                         mediaTypes: ['images'], allowsEditing: true, aspect: [3, 1], quality: 0.8, base64: true,
                       });
-                      if (result.canceled || !result.assets[0]?.base64) return;
+                      if (result.canceled || !result.assets[0]) return;
                       setBannerUploading(true);
                       try {
-                        const imageData = `data:image/jpeg;base64,${result.assets[0].base64}`;
+                        const b64 = await asBase64(result.assets[0]);
+                        const imageData = `data:image/jpeg;base64,${b64}`;
                         const r = await OwnerApi.uploadBanner(token!, { imageData });
                         setBannerUrl(r.bannerImageUrl);
                       } catch (e: any) { Alert.alert('Upload Failed', e.message || 'Please try again.'); }
