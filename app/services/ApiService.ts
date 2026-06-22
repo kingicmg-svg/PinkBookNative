@@ -174,6 +174,18 @@ export const OwnerApi = {
     request<{ tier?: string; status?: string; active?: boolean; hasBilling?: boolean; cancelAtPeriodEnd?: boolean; currentPeriodEnd?: string }>
     ('/api/payments/subscription/status', {}, token),
 
+  /** Public — no auth. Creates a Stripe Checkout for a not-yet-created account. */
+  preSignupCheckout: (body: { tier: string; email: string; successUrl: string; cancelUrl: string }) =>
+    request<{ url: string; sessionId: string }>('/api/payments/subscription/pre-signup-checkout', { method: 'POST', body: JSON.stringify(body) }),
+
+  /** Public — check if a checkout session was paid (use after browser closes). */
+  getCheckoutSessionStatus: (sessionId: string) =>
+    request<{ id: string; paymentStatus: string; status: string }>(`/api/payments/checkout-session/${sessionId}`),
+
+  /** Auth — link a completed pre-signup Stripe session to the new owner account. */
+  linkSignupCheckout: (token: string, body: { sessionId: string }) =>
+    request<{ ok: boolean; tier: string }>('/api/payments/subscription/link-signup', { method: 'POST', body: JSON.stringify(body) }, token),
+
   createSubscriptionCheckout: (token: string, body: { tier: string; interval: string; currency: string; successUrl: string; cancelUrl: string }) =>
     request<{ url: string; id: string }>('/api/payments/subscription/checkout', { method: 'POST', body: JSON.stringify(body) }, token),
 

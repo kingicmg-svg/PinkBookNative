@@ -7,6 +7,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../hooks/useAuth';
 import { useGoogleAuth } from '../hooks/useGoogleAuth';
 import { OwnerApi, SettingsApi, API_URL } from '../services/ApiService';
@@ -126,48 +127,107 @@ export default function OwnerRegisterScreen() {
 
     setLoading(true);
     setError(null);
+
+    const isPaid = ['pro', 'salon', 'studio_elite'].includes(selectedTier);
+
+    // ── PAID TIERS: payment first, account created after ──────────────────
+    if (isPaid) {
+      try {
+        // 1. Persist all form data so we can create the account after payment
+        const pendingData = {
+          name: name.trim(), email: email.trim().toLowerCase(),
+          password, phone: phone.trim(),
+          profession, accountType, subscriptionTier: selectedTier,
+          streetAddress: streetAddress.trim(), city: city.trim(),
+          province: province.trim(), postalCode: postalCode.trim(), timezone,
+        };
+        await AsyncStorage.setItem('pinkbookPendingNativeReg', JSON.stringify(pendingData));
+
+        // 2. Create Stripe Checkout session (no account needed yet)
+        const appUrl = API_URL.replace(/\/$/, '');
+        const checkoutResult = await OwnerApi.preSignupCheckout({
+          tier:       selectedTier,
+          email:      email.trim().toLowerCase(),
+          successUrl: `${appUrl}/pinkbook-signup.html?signup_paid=1&tier=${encodeURIComponent(selectedTier)}`,
+          cancelUrl:  `${appUrl}/pinkbook-signup.html?signup_paid=0`,
+        });
+
+        if (!checkoutResult?.url) throw new Error('No checkout URL returned');
+        await AsyncStorage.setItem('pinkbookPendingNativeSessionId', checkoutResult.sessionId || '');
+
+        // 3. Open Stripe in the browser (blocks until user closes it)
+        await WebBrowser.openBrowserAsync(checkoutResult.url);
+
+        // 4. Check if payment actually went through
+        const sessionId = await AsyncStorage.getItem('pinkbookPendingNativeSessionId');
+        let paid = false;
+        if (sessionId) {
+          try {
+            const sessionStatus = await OwnerApi.getCheckoutSessionStatus(sessionId);
+            paid = sessionStatus?.paymentStatus === 'paid';
+          } catch { /* treat as unpaid */ }
+        }
+
+        if (!paid) {
+          await AsyncStorage.removeItem('pinkbookPendingNativeReg');
+          await AsyncStorage.removeItem('pinkbookPendingNativeSessionId');
+          setError('Payment was not completed. Please try again.');
+          return;
+        }
+
+        // 5. Payment confirmed — now create the account
+        const res = await OwnerApi.register({
+          name:             pendingData.name,
+          email:            pendingData.email,
+          password:         pendingData.password,
+          phone:            pendingData.phone,
+          subscriptionTier: pendingData.subscriptionTier,
+        });
+        if (!res.token) throw new Error('No token returned');
+        await signIn(res.token);
+
+        // 6. Save settings and link the Stripe subscription
+        await SettingsApi.save(res.token, {
+          profession, accountType,
+          streetAddress: pendingData.streetAddress, city: pendingData.city,
+          province: pendingData.province, postalCode: pendingData.postalCode,
+          timezone, subscriptionTier: selectedTier,
+        }).catch(() => {});
+
+        if (sessionId) {
+          await OwnerApi.linkSignupCheckout(res.token, { sessionId }).catch(() => {});
+        }
+
+        await AsyncStorage.removeItem('pinkbookPendingNativeReg');
+        await AsyncStorage.removeItem('pinkbookPendingNativeSessionId');
+
+        router.replace('/(owner-tabs)/calendar');
+      } catch (e: any) {
+        setError(e.message || 'Registration failed');
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
+    // ── STARTER (FREE) TIER: create account directly ───────────────────────
     try {
       const res = await OwnerApi.register({
         name:             name.trim(),
         email:            email.trim().toLowerCase(),
         password,
         phone:            phone.trim(),
-        subscriptionTier: selectedTier,
+        subscriptionTier: 'starter',
       });
       if (!res.token) throw new Error('No token returned');
       await signIn(res.token);
 
-      // Save onboarding fields to settings immediately after registration
       await SettingsApi.save(res.token, {
-        profession,
-        accountType,
-        streetAddress: streetAddress.trim(),
-        city:          city.trim(),
-        province:      province.trim(),
-        postalCode:    postalCode.trim(),
-        timezone,
-        subscriptionTier: selectedTier,
+        profession, accountType,
+        streetAddress: streetAddress.trim(), city: city.trim(),
+        province: province.trim(), postalCode: postalCode.trim(),
+        timezone, subscriptionTier: 'starter',
       }).catch(() => {});
-
-      // For paid tiers: open Stripe subscription checkout in the browser
-      const isPaid = ['pro', 'salon', 'studio_elite'].includes(selectedTier);
-      if (isPaid) {
-        try {
-          const appUrl = API_URL.replace(/\/$/, '');
-          const checkout = await OwnerApi.createSubscriptionCheckout(res.token, {
-            tier:       selectedTier,
-            interval:   'month',
-            currency:   'cad',
-            successUrl: `${appUrl}/pinkbook-signup.html?signup_paid=1&tier=${encodeURIComponent(selectedTier)}`,
-            cancelUrl:  `${appUrl}/pinkbook-signup.html?signup_paid=0`,
-          });
-          if (checkout && checkout.url) {
-            await WebBrowser.openBrowserAsync(checkout.url);
-          }
-        } catch {
-          // Non-fatal: account is created, payment can be done from settings later
-        }
-      }
 
       router.replace('/(owner-tabs)/calendar');
     } catch (e: any) {
