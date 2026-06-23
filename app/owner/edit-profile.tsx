@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView,
-  KeyboardAvoidingView, Platform, ActivityIndicator, Alert } from 'react-native';
+  KeyboardAvoidingView, Platform, ActivityIndicator, Alert, Animated } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../hooks/useAuth';
@@ -116,6 +116,24 @@ export default function EditProfileScreen() {
   const [originalProfession, setOrigProf]   = useState('hair');
   const [error,   setError]     = useState<string | null>(null);
 
+  // ── Save success animation ──
+  const [showSaved, setShowSaved] = useState(false);
+  const savedScale   = useRef(new Animated.Value(0.4)).current;
+  const savedOpacity = useRef(new Animated.Value(0)).current;
+  const triggerSaved = () => {
+    savedScale.setValue(0.4);
+    savedOpacity.setValue(0);
+    setShowSaved(true);
+    Animated.sequence([
+      Animated.parallel([
+        Animated.spring(savedScale, { toValue: 1, useNativeDriver: true, speed: 30, bounciness: 14 }),
+        Animated.timing(savedOpacity, { toValue: 1, duration: 180, useNativeDriver: true }),
+      ]),
+      Animated.delay(700),
+      Animated.timing(savedOpacity, { toValue: 0, duration: 220, useNativeDriver: true }),
+    ]).start(() => { setShowSaved(false); router.back(); });
+  };
+
   useEffect(() => {
     if (!token) return;
     Promise.all([OwnerApi.me(token), SettingsApi.get(token)])
@@ -171,13 +189,15 @@ export default function EditProfileScreen() {
       }).catch(() => {});
 
       setOrigProf(profession);
-      Alert.alert(
-        'Saved',
-        resetCatalog
-          ? `Profession changed to ${PROF_LABELS[profession]}. Your services have been reset to defaults — head to Services to customise them.`
-          : 'Profile updated successfully.',
-      );
-      router.back();
+      if (resetCatalog) {
+        Alert.alert(
+          'Profession Changed',
+          `Your services have been reset to defaults for ${PROF_LABELS[profession]}. Head to Services to customise them.`,
+          [{ text: 'OK', onPress: () => router.back() }],
+        );
+      } else {
+        triggerSaved();
+      }
     } catch (e: any) {
       setError(e.message || 'Save failed');
     } finally {
@@ -283,6 +303,38 @@ export default function EditProfileScreen() {
 
           <View style={{ height: 40 }} />
         </ScrollView>
+
+        {/* ── Save success overlay ── */}
+        {showSaved && (
+          <Animated.View
+            style={{
+              ...StyleSheet.absoluteFillObject,
+              backgroundColor: 'rgba(0,0,0,0.18)',
+              justifyContent: 'center',
+              alignItems: 'center',
+              zIndex: 99,
+              opacity: savedOpacity,
+            }}
+          >
+            <Animated.View
+              style={{
+                backgroundColor: '#fff',
+                borderRadius: 24,
+                padding: 32,
+                alignItems: 'center',
+                gap: 8,
+                transform: [{ scale: savedScale }],
+                shadowColor: '#000',
+                shadowOpacity: 0.12,
+                shadowRadius: 24,
+                shadowOffset: { width: 0, height: 6 },
+              }}
+            >
+              <Text style={{ fontSize: 52 }}>✅</Text>
+              <Text style={{ fontSize: 17, fontWeight: '800', color: '#1C1C1E' }}>Saved!</Text>
+            </Animated.View>
+          </Animated.View>
+        )}
       </View>
     </KeyboardAvoidingView>
   );

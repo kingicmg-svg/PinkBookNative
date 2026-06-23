@@ -1,5 +1,5 @@
-import React, { useCallback, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Share, Linking, Image, Clipboard, Modal } from 'react-native';
+import React, { useCallback, useState, useRef } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Share, Linking, Image, Clipboard, Modal, Animated } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
@@ -25,18 +25,37 @@ interface RowProps { icon: string; label: string; sub?: string; onPress: () => v
 function Row({ icon, label, sub, onPress, danger, badge }: RowProps) {
   const T = useTheme();
   const s = React.useMemo(() => makeStyles(T), [T]);
+  const scale   = useRef(new Animated.Value(1)).current;
+  const bgOpacity = useRef(new Animated.Value(0)).current;
+
+  const pressIn = () => {
+    Animated.parallel([
+      Animated.spring(scale, { toValue: 0.965, useNativeDriver: true, speed: 60, bounciness: 0 }),
+      Animated.timing(bgOpacity, { toValue: 1, duration: 80, useNativeDriver: true }),
+    ]).start();
+  };
+  const pressOut = () => {
+    Animated.parallel([
+      Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 22, bounciness: 4 }),
+      Animated.timing(bgOpacity, { toValue: 0, duration: 220, useNativeDriver: true }),
+    ]).start();
+  };
+
   const handlePress = () => { Haptics.selectionAsync(); onPress(); };
   return (
-    <TouchableOpacity style={s.row} onPress={handlePress}>
-      <View style={s.rowIcon}><Text style={{ fontSize: 18 }}>{icon}</Text></View>
-      <View style={s.rowContent}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <Text style={[s.rowLabel, danger && { color: Colors.error }]}>{label}</Text>
-          {!!badge && <View style={s.badge}><Text style={s.badgeTxt}>{badge}</Text></View>}
+    <TouchableOpacity onPress={handlePress} onPressIn={pressIn} onPressOut={pressOut} activeOpacity={1}>
+      <Animated.View style={[s.row, { transform: [{ scale }] }]}>
+        <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: T.rose + '18', opacity: bgOpacity, borderRadius: s.row.borderRadius ?? 0 }]} />
+        <View style={s.rowIcon}><Text style={{ fontSize: 18 }}>{icon}</Text></View>
+        <View style={s.rowContent}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <Text style={[s.rowLabel, danger && { color: Colors.error }]}>{label}</Text>
+            {!!badge && <View style={s.badge}><Text style={s.badgeTxt}>{badge}</Text></View>}
+          </View>
+          {!!sub && <Text style={s.rowSub}>{sub}</Text>}
         </View>
-        {!!sub && <Text style={s.rowSub}>{sub}</Text>}
-      </View>
-      {!danger && <Text style={s.chevron}>›</Text>}
+        {!danger && <Text style={s.chevron}>›</Text>}
+      </Animated.View>
     </TouchableOpacity>
   );
 }
@@ -83,7 +102,7 @@ export default function SettingsScreen() {
 
   // Reload on every screen focus so edits made in Edit Profile are immediately
   // reflected (name, booking link, etc.).
-  useFocusEffect(loadData);
+  useFocusEffect(useCallback(() => { loadData(); }, [loadData]));
 
   const tier = user?.subscription_tier || user?.tier || settings?.subscriptionTier || settings?.subscription_tier || 'starter';
   const TIER_META = makeTierMeta(T);
@@ -95,6 +114,40 @@ export default function SettingsScreen() {
   const shareLink = async () => {
     if (!bookingLink) return;
     await Share.share({ message: `Book with me on PinkBook: ${bookingUrl}` });
+  };
+
+  const CAL_MODE_LABELS: Record<string, string> = {
+    month: '1 Month',
+    '2month': '2 Months',
+    quarter: 'Quarterly (3 months)',
+    '4month': '4 Months',
+  };
+  const calMode: string = settings?.bookingCalendarMode || 'month';
+
+  const changeCalMode = () => {
+    if (!token) return;
+    const options = [
+      { label: '1 Month (default)', value: 'month' },
+      { label: '2 Months',          value: '2month' },
+      { label: 'Quarterly (3 months)', value: 'quarter' },
+      { label: '4 Months',           value: '4month' },
+    ];
+    Alert.alert(
+      'Booking Calendar Range',
+      'How far out should clients be able to book?',
+      [
+        ...options.map(o => ({
+          text: calMode === o.value ? `✓ ${o.label}` : o.label,
+          onPress: async () => {
+            if (o.value === calMode) return;
+            setSettings((prev: any) => ({ ...prev, bookingCalendarMode: o.value }));
+            try { await SettingsApi.save(token, { bookingCalendarMode: o.value }); }
+            catch { Alert.alert('Error', 'Could not save setting.'); }
+          },
+        })),
+        { text: 'Cancel', style: 'cancel' },
+      ]
+    );
   };
 
   const copyLink = async () => {
@@ -239,6 +292,7 @@ export default function SettingsScreen() {
         <Text style={s.section}>Business</Text>
         <View style={s.group}>
           <Row icon="🕐" label="Working Hours"    sub="Set your availability by day"       onPress={() => router.push('/owner/availability')} />
+          <Row icon="📅" label="Booking Calendar Range" sub={`Clients can book ${CAL_MODE_LABELS[calMode] || '1 Month'} ahead`}  onPress={changeCalMode} />
           <Row icon="�" label="Team Members"     sub="Stylists, roles & schedules"
             badge={!['salon','studio_elite','owner'].includes(tier) ? 'Salon' : undefined}
             onPress={() => router.push('/owner/team')} />

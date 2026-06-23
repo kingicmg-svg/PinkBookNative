@@ -5,9 +5,6 @@ import { useEffect, useState } from 'react';
 import 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import AnimatedSplash from '../components/AnimatedSplash';
-import { NotificationService } from './services/NotificationService';
-import { StorageService } from './services/StorageService';
-import { SettingsApi } from './services/ApiService';
 
 // Keep native splash visible until AnimatedSplash takes over
 SplashScreen.preventAutoHideAsync();
@@ -25,22 +22,6 @@ export default function RootLayout() {
   const [splashDone, setSplashDone] = useState(false);
 
   useEffect(() => { if (error) throw error; }, [error]);
-
-  // Initialize notifications and register push token with backend
-  useEffect(() => {
-    NotificationService.initialize();
-    (async () => {
-      try {
-        const pushToken = await NotificationService.getPushToken();
-        if (!pushToken) return;
-        const stored = await StorageService.getToken();
-        if (!stored?.token) return;
-        await SettingsApi.save(stored.token, { expoPushToken: pushToken });
-      } catch {
-        // Non-critical — silently skip
-      }
-    })();
-  }, []);
 
   if (!loaded) return null;
 
@@ -71,4 +52,3 @@ export default function RootLayout() {
     </SafeAreaProvider>
   );
 }
-

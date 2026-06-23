@@ -7,7 +7,7 @@ import { LightTheme, DarkTheme, AppTheme } from '../../constants/Colors';
  */
 export function useTheme(): AppTheme {
   const scheme = useColorScheme();
-  return scheme === 'dark' ? DarkTheme : LightTheme;
+  return (scheme === 'dark' ? DarkTheme : LightTheme) as AppTheme;
 }
 
 export default useTheme;

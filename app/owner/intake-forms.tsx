@@ -173,7 +173,9 @@ export default function IntakeFormsScreen() {
 
   useEffect(() => { load(); }, [load]);
 
-  const currentForm: IntakeForm = selected || { fields: [], active: true };
+  const currentForm: IntakeForm = selected
+    ? { ...selected, fields: selected.fields ?? [] }
+    : { fields: [], active: true };
 
   const saveForm = async () => {
     if (!token) return;

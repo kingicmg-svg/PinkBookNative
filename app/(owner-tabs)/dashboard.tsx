@@ -1,8 +1,9 @@
 'use strict';
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useRef, useState, useEffect } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Animated,
   Clipboard,
   Modal,
   RefreshControl,
@@ -22,6 +23,7 @@ import { OwnerApi, SettingsApi, API_URL } from '../services/ApiService';
 import Colors from '../../constants/Colors';
 import { useTheme } from '../hooks/useTheme';
 import type { AppTheme } from '../../constants/Colors';
+import { AnimatedPress } from '../../components/AnimatedPress';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -60,6 +62,66 @@ function uid() { return Math.random().toString(36).slice(2, 10); }
 
 const BADGE_COLORS = ['#C85D7A', '#7C3AED', '#1A9E4A', '#F59E0B', '#3B82F6', '#EF4444', '#EC4899', '#14B8A6', '#1C1C1E', '#F2A7BB'];
 const BADGE_EMOJIS = ['✨', '💅', '💜', '🔥', '⭐', '🌸', '👑', '🎉', '🙌', '💎', '🌟', '🏅', '✅', '🎀', '🦋'];
+
+// ─── Skeleton loading helpers ────────────────────────────────────────────────
+
+function SkeletonPulse({ width, height, style }: { width: number | `${number}%`; height: number; style?: any }) {
+  const op = useRef(new Animated.Value(0.35)).current;
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(op, { toValue: 0.85, duration: 650, useNativeDriver: true }),
+        Animated.timing(op, { toValue: 0.35, duration: 650, useNativeDriver: true }),
+      ]),
+    ).start();
+  }, []);
+  return (
+    <Animated.View
+      style={[{ width, height, backgroundColor: '#D8D8D8', borderRadius: 8, opacity: op }, style]}
+    />
+  );
+}
+
+function DashboardSkeleton({ insetTop, bg }: { insetTop: number; bg: string }) {
+  return (
+    <ScrollView contentContainerStyle={{ paddingTop: insetTop + 16, paddingHorizontal: 16, gap: 14 }}>
+      {/* Top bar */}
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+        <View style={{ gap: 8 }}>
+          <SkeletonPulse width={180} height={20} />
+          <SkeletonPulse width={140} height={13} />
+        </View>
+        <SkeletonPulse width={70} height={28} style={{ borderRadius: 14 }} />
+      </View>
+      {/* Cards */}
+      {[0, 1, 2].map(i => (
+        <View key={i} style={{ backgroundColor: bg, borderRadius: 18, padding: 16, gap: 10, borderWidth: 1, borderColor: '#f0f0f0' }}>
+          <SkeletonPulse width="50%" height={16} />
+          <SkeletonPulse width="100%" height={11} />
+          <SkeletonPulse width="80%" height={11} />
+          <SkeletonPulse width="65%" height={11} />
+        </View>
+      ))}
+    </ScrollView>
+  );
+}
+
+/** Fades + slides upward on first render. Use `delay` (ms) for stagger. */
+function AnimatedCard({ children, delay = 0, style }: { children: React.ReactNode; delay?: number; style?: any }) {
+  const op = useRef(new Animated.Value(0)).current;
+  const ty = useRef(new Animated.Value(14)).current;
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(op, { toValue: 1, duration: 280, delay, useNativeDriver: true }),
+      Animated.spring(ty, { toValue: 0, useNativeDriver: true, delay, speed: 14, bounciness: 3 }),
+    ]).start();
+  }, []);
+  return (
+    <Animated.View style={[{ opacity: op, transform: [{ translateY: ty }] }, style]}>
+      {children}
+    </Animated.View>
+  );
+}
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
@@ -125,6 +187,19 @@ export default function DashboardScreen() {
   const [badgeEmoji, setBadgeEmoji] = useState('✨');
   const [badgeAdding, setBadgeAdding] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+
+  // ── Notification bell badge pulse ──
+  const bellBadgeScale = useRef(new Animated.Value(1)).current;
+  const prevNotifCount = useRef(0);
+  useEffect(() => {
+    if (notifCount > 0 && notifCount !== prevNotifCount.current) {
+      prevNotifCount.current = notifCount;
+      Animated.sequence([
+        Animated.spring(bellBadgeScale, { toValue: 1.5, useNativeDriver: true, speed: 40, bounciness: 12 }),
+        Animated.spring(bellBadgeScale, { toValue: 1,   useNativeDriver: true, speed: 20, bounciness: 6  }),
+      ]).start();
+    }
+  }, [notifCount]);
 
   const load = useCallback(async (isRefresh = false) => {
     if (!token) return;
@@ -267,8 +342,8 @@ export default function DashboardScreen() {
 
   if (loading) {
     return (
-      <View style={[s.center, { paddingTop: insets.top }]}>
-        <ActivityIndicator color={T.rose} size="large" />
+      <View style={[s.container, { paddingTop: 0 }]}>
+        <DashboardSkeleton insetTop={insets.top} bg={T.card} />
       </View>
     );
   }
@@ -278,7 +353,7 @@ export default function DashboardScreen() {
       {/* Top Bar */}
       <View style={s.topBar}>
         <View style={{ flex: 1 }}>
-          <Text style={s.greetingTxt}>{greeting(displayName)}</Text>
+          <Text style={s.greetingTxt}>{greeting(user?.name || '')}</Text>
           <Text style={s.dateTxt}>{todayLabel()}</Text>
         </View>
         <View style={[s.tierPill, { backgroundColor: tierMeta.color + '18', borderColor: tierMeta.color + '40' }]}>
@@ -297,7 +372,9 @@ export default function DashboardScreen() {
         >
           <Ionicons name="notifications-outline" size={22} color={T.textPrimary} />
           {notifCount > 0 && (
-            <View style={s.bellBadge}><Text style={s.bellBadgeTxt}>{notifCount}</Text></View>
+            <Animated.View style={[s.bellBadge, { transform: [{ scale: bellBadgeScale }] }]}>
+              <Text style={s.bellBadgeTxt}>{notifCount}</Text>
+            </Animated.View>
           )}
         </TouchableOpacity>
       </View>
@@ -332,6 +409,7 @@ export default function DashboardScreen() {
         </View>
 
                 {/* ── SMART INSIGHTS ── */}
+        <AnimatedCard delay={60}>
         <View style={s.card}>
           <SectionHeader title="Smart Insights ✨" action="Full Report →" onAction={() => router.push('/(owner-tabs)/finances')} />
           <View style={s.insightGrid}>
@@ -396,8 +474,10 @@ export default function DashboardScreen() {
             </View>
           )}
         </View>
+        </AnimatedCard>
 
 {/* ── QUICK ACTIONS ── */}
+        <AnimatedCard delay={120}>
         <View style={s.card}>
           <Text style={s.cardTitle}>Quick Actions</Text>
           <View style={s.quickGrid}>
@@ -407,13 +487,14 @@ export default function DashboardScreen() {
               { icon: '✂️', label: 'Edit Services',    onPress: () => router.push('/(owner-tabs)/services') },
               { icon: '📋', label: 'Update Policies',  onPress: () => router.push('/owner/policies') },
             ].map(a => (
-              <TouchableOpacity key={a.label} style={s.quickBtn} onPress={a.onPress}>
+              <AnimatedPress key={a.label} style={s.quickBtn} onPress={a.onPress} scale={0.94}>
                 <Text style={s.quickIcon}>{a.icon}</Text>
                 <Text style={s.quickLabel}>{a.label}</Text>
-              </TouchableOpacity>
+              </AnimatedPress>
             ))}
           </View>
         </View>
+        </AnimatedCard>
 
         {/* ── UPCOMING THIS WEEK ── */}
         {upcomingBookings.length > 0 && (

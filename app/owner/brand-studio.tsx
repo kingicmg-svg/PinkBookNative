@@ -149,7 +149,8 @@ export default function BrandStudioScreen() {
     setGalleryLoading(true);
     try {
       const r = await OwnerApi.brandGallery(token);
-      setGalleryItems(Array.isArray(r.gallery) ? r.gallery : []);
+      const items = (r as any).data?.gallery ?? (r as any).gallery;
+      setGalleryItems(Array.isArray(items) ? items : []);
     } catch {}
     finally { setGalleryLoading(false); }
   }, [token]);

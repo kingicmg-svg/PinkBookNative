@@ -100,11 +100,16 @@ function normalizeTier(raw: string | undefined | null): Tier {
 }
 
 export function useTier() {
-  const { token } = useAuth();
+  const { token, isLoading: authLoading } = useAuth();
   const [tier, setTier]       = useState<Tier>('starter');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Keep loading=true while the auth layer is still reading the token from
+    // storage. Resolving early (with token=null) would flash the 'starter'
+    // defaults and incorrectly show feature-gate screens before the real tier
+    // is known.
+    if (authLoading) return;
     if (!token) { setLoading(false); return; }
     let cancelled = false;
     SettingsApi.get(token)
@@ -114,7 +119,7 @@ export function useTier() {
       .catch(() => { /* default to starter on error */ })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [token]);
+  }, [token, authLoading]);
 
   function hasFeature(featureName: string): boolean {
     if (tier === 'owner') return true;

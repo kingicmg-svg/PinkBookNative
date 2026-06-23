@@ -18,6 +18,8 @@ function fmtDate(d: string|null) { if (!d) return '—'; try { return new Date(d
 
 // ── Add / Edit Client Modal ────────────────────────────────────────────────
 function ClientModal({ visible, client, onClose, onSave }: { visible:boolean; client:any|null; onClose:()=>void; onSave:(c:any)=>void }) {
+  const T = useTheme();
+  const cm = React.useMemo(() => makeModalStyles(T), [T]);
   const [name, setName]         = useState('');
   const [email, setEmail]       = useState('');
   const [phone, setPhone]       = useState('');
@@ -72,6 +74,9 @@ function ClientModal({ visible, client, onClose, onSave }: { visible:boolean; cl
 
 // ── Client Detail Modal ────────────────────────────────────────────────────
 function ClientDetail({ visible, client, stats, bookings, onClose, onEdit }: { visible:boolean; client:any|null; stats:any|null; bookings:any[]; onClose:()=>void; onEdit:()=>void }) {
+  const T = useTheme();
+  const cm = React.useMemo(() => makeModalStyles(T), [T]);
+  const cd = React.useMemo(() => makeDetailStyles(T), [T]);
   if (!client) return null;
   const name = client.name || 'Client';
   const totalVisits = stats?.totalVisits ?? 0;
@@ -168,6 +173,8 @@ function ClientDetail({ visible, client, stats, bookings, onClose, onEdit }: { v
 
 // ── Client Row ─────────────────────────────────────────────────────────────
 function ClientRow({ item, onPress }: { item:any; onPress:()=>void }) {
+  const T = useTheme();
+  const s = React.useMemo(() => makeStyles(T), [T]);
   const name  = item.name||'Unknown';
   const email = item.contactEmail||'';
   const phone = item.contactPhone||'';

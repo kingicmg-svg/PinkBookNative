@@ -138,7 +138,7 @@ export const OwnerApi = {
 
   // ── Gallery ──
   brandGallery: (token: string) =>
-    request<{ gallery: any[] }>('/api/v1/brand-studio/gallery', {}, token),
+    request<{ success: boolean; data: { gallery: any[] } }>('/api/v1/brand-studio/gallery', {}, token),
 
   brandGalleryUpload: (token: string, body: { imageData: string; caption?: string; isBefore?: boolean; pairId?: string | null }) =>
     request<{ success: boolean; data: any }>('/api/v1/brand-studio/gallery/upload', { method: 'POST', body: JSON.stringify(body) }, token),

@@ -154,9 +154,13 @@ function isOpenDay(wh: any, iso: string) {
   const day = wh[DOW_KEYS[new Date(iso + 'T12:00:00').getDay()]];
   return !day || day.enabled !== false;
 }
-function genDates(wh?: any): string[] {
+function genDates(wh?: any, calMode?: string): string[] {
+  const modeTodays: Record<string, number> = {
+    month: 30, '2month': 60, quarter: 90, '4month': 120, year: 365,
+  };
+  const lookahead = modeTodays[calMode || 'month'] ?? 30;
   const out: string[] = [], today = new Date();
-  for (let i = 0; out.length < 30 && i < 90; i++) {
+  for (let i = 0; i < lookahead; i++) {
     const d = new Date(today); d.setDate(today.getDate() + i);
     const iso = d.toISOString().split('T')[0];
     if (!wh || isOpenDay(wh, iso)) out.push(iso);
@@ -380,6 +384,20 @@ export default function BookingScreen() {
   const [hairColours,   setHairColours]   = useState<string[]>([]);
   const [date,          setDate]          = useState('');
   const [time,          setTime]          = useState('');
+
+  // Date selection scale-in animation
+  const dateConfirmScale = useRef(new Animated.Value(0.8)).current;
+  const dateConfirmOpacity = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (date) {
+      dateConfirmScale.setValue(0.8);
+      dateConfirmOpacity.setValue(0);
+      Animated.parallel([
+        Animated.spring(dateConfirmScale, { toValue: 1, useNativeDriver: true, speed: 30, bounciness: 10 }),
+        Animated.timing(dateConfirmOpacity, { toValue: 1, duration: 180, useNativeDriver: true }),
+      ]).start();
+    }
+  }, [date]);
   const [firstName,     setFirstName]     = useState('');
   const [lastName,      setLastName]      = useState('');
   const [email,         setEmail]         = useState('');
@@ -463,7 +481,7 @@ export default function BookingScreen() {
   const totalPrice = (Number(service?.price) || 0) + addonTotal + hairTypePrice;
   const deposit    = (Number(service?.deposit) || 0) + hairMixCharge;
 
-  const availDates   = genDates(workingHours || undefined);
+  const availDates   = genDates(workingHours || undefined, settings?.bookingCalendarMode);
   const slots        = date ? buildSlots(workingHours, date, slotInterval) : [];
   const displayTimes = slots.length > 0 ? slots : FALLBACK_TIMES;
 
@@ -973,7 +991,9 @@ export default function BookingScreen() {
               return (
                 <TouchableOpacity key={d}
                   style={[s.dateChip, { backgroundColor: D.bgCard, borderColor: D.bgElevated }, on && { borderColor: D.pink, backgroundColor: D.cardOn }]}
-                  onPress={() => { setDate(d); setTime(''); }}>
+                  onPress={() => { setDate(d); setTime(''); }}
+                  activeOpacity={0.72}
+                >
                   <Text style={[s.dateWd, { color: on ? D.pink : BASE.textMuted }]}>{wd}</Text>
                   <Text style={[s.dateDay, { color: on ? D.pink : BASE.textPrimary }]}>{day}</Text>
                 </TouchableOpacity>
@@ -981,9 +1001,9 @@ export default function BookingScreen() {
             })}
           </ScrollView>
           {!!date && (
-            <View style={[s.selectedDate, { backgroundColor: D.bgCard, borderColor: D.border }]}>
+            <Animated.View style={[s.selectedDate, { backgroundColor: D.bgCard, borderColor: D.border, opacity: dateConfirmOpacity, transform: [{ scale: dateConfirmScale }] }]}>
               <Text style={{ color: D.pink, fontWeight: '700', fontSize: 14 }}>📅 {fmtLong(date)}</Text>
-            </View>
+            </Animated.View>
           )}
           {!!date && (
             <>

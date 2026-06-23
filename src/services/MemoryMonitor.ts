@@ -18,7 +18,7 @@ interface MemoryTrend {
 export class MemoryMonitor {
   private static readings: MemoryInfo[] = [];
   private static maxReadings = 60; // Keep last 60 readings
-  private static checkInterval: NodeJS.Timeout | null = null;
+  private static checkInterval: ReturnType<typeof setInterval> | null = null;
 
   static startMonitoring(intervalMs: number = 10000) {
     if (this.checkInterval) return;

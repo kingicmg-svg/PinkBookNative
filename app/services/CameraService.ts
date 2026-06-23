@@ -1,15 +1,12 @@
-import * as FileSystem from 'expo-file-system';
-import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
+import * as FileSystem from 'expo-file-system/legacy';
+import { Camera, CameraView, CameraType } from 'expo-camera';
 
 export class CameraService {
   private static cameraRef: any = null;
 
   static async requestPermissions() {
     try {
-      const mod = await import('expo-camera');
-      const fn = (mod as any).requestCameraPermissionsAsync ||
-                 (mod as any).Camera?.requestCameraPermissionsAsync;
-      const result = fn ? await fn() : { status: 'denied' };
+      const result = await Camera.requestCameraPermissionsAsync();
       return result.status === 'granted';
     } catch { return false; }
   }
@@ -28,7 +25,10 @@ export class CameraService {
 
       // Save to permanent storage
       const filename = `photo-${Date.now()}.jpg`;
-      const path = `${(FileSystem as any).documentDirectory ?? ''}${filename}`;
+      if (!FileSystem.documentDirectory) {
+        throw new Error('Document directory is not available on this device.');
+      }
+      const path = `${FileSystem.documentDirectory}${filename}`;
       await FileSystem.copyAsync({
         from: photo.uri,
         to: path,

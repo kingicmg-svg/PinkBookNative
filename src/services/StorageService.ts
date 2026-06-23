@@ -35,7 +35,7 @@ export class StorageService {
     try {
       const keys = await AsyncStorage.getAllKeys();
       const cacheKeys = keys.filter((k) => k.startsWith(this.CACHE_PREFIX));
-      await AsyncStorage.multiRemove(cacheKeys);
+      await Promise.all(cacheKeys.map((k) => AsyncStorage.removeItem(k)));
     } catch (error) {
       throw new Error(`Storage clear failed: ${error}`);
     }

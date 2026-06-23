@@ -17,6 +17,8 @@ function fmtDate(t: string) { try { return new Date(t).toLocaleDateString('en-US
 const STATUS_COLOR: Record<string,string> = { confirmed:C.success, pending:'#F59E0B', completed:'#6366F1', cancelled:'#9CA3AF', noshow:'#EF4444' };
 
 function StatCard({ label, value, sub, accent }: { label:string; value:string; sub?:string; accent?:string }) {
+  const T = useTheme();
+  const s = React.useMemo(() => makeStyles(T), [T]);
   return (
     <View style={[s.statCard, accent && { borderTopColor:accent, borderTopWidth:3 }]}>
       <Text style={[s.statVal, accent && { color:accent }]}>{value}</Text>

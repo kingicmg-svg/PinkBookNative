@@ -44,6 +44,8 @@ function buildIso(dateStr: string, timeStr: string): string {
 
 // ── Stat Card ──────────────────────────────────────────────────────────────
 function StatCard({ icon, label, value, color, onPress }: { icon:string; label:string; value:string; color:string; onPress?:()=>void }) {
+  const T = useTheme();
+  const s = React.useMemo(() => makeStyles(T), [T]);
   return (
     <TouchableOpacity style={[s.statCard, { borderTopColor: color, borderTopWidth: 3 }]} onPress={onPress} activeOpacity={onPress ? 0.75 : 1}>
       <Text style={s.statIcon}>{icon}</Text>
@@ -55,6 +57,8 @@ function StatCard({ icon, label, value, color, onPress }: { icon:string; label:s
 
 // ── Before / After Photo Capture ────────────────────────────────────────────
 function BeforeAfterCapture({ booking, token }: { booking: any; token: string | null }) {
+  const T = useTheme();
+  const dm = React.useMemo(() => makeDetailModalStyles(T), [T]);
   const [beforeId, setBeforeId] = useState<string | null>(null);
   const [afterDone, setAfterDone] = useState(false);
   const [busy, setBusy] = useState<'before' | 'after' | null>(null);
@@ -267,6 +271,8 @@ function makeDetailModalStyles(T: AppTheme) { return StyleSheet.create({
 
 // ── Booking Card ───────────────────────────────────────────────────────────
 function BookingCard({ item, onPress, onConfirm, onDeny }: { item:any; onPress:()=>void; onConfirm:(id:string)=>void; onDeny:(id:string)=>void }) {
+  const T = useTheme();
+  const s = React.useMemo(() => makeStyles(T), [T]);
   const clientName = item.clientName || item.client_name || item.contactName || item.contactName || '—';
   const service    = item.serviceName || item.service_name || item.service || '';
   const status     = item.status || 'pending';
@@ -314,6 +320,8 @@ function BookingCard({ item, onPress, onConfirm, onDeny }: { item:any; onPress:(
 
 // ── Date Strip Day ─────────────────────────────────────────────────────────
 function DateDay({ date, selected, hasBooking, onPress }: { date:Date; selected:boolean; hasBooking:boolean; onPress:()=>void }) {
+  const T = useTheme();
+  const s = React.useMemo(() => makeStyles(T), [T]);
   const isToday = isoDate(date) === isoDate(new Date());
   const day = date.toLocaleDateString('en-US', { weekday:'short' }).toUpperCase().slice(0,3);
   const num = date.getDate();
@@ -329,6 +337,8 @@ function DateDay({ date, selected, hasBooking, onPress }: { date:Date; selected:
 // ── Add Booking Modal ──────────────────────────────────────────────────────
 function AddBookingModal({ visible, clients, settings, onClose, onSave }:
   { visible:boolean; clients:any[]; settings:any; onClose:()=>void; onSave:(b:any)=>void }) {
+  const T = useTheme();
+  const m = React.useMemo(() => makeModalStyles(T), [T]);
   const [clientSearch, setClientSearch] = useState('');
   const [selectedClient, setSelectedClient] = useState<any>(null);
   const [serviceSearch, setServiceSearch] = useState('');

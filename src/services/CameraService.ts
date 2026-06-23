@@ -1,12 +1,12 @@
 import * as Camera from 'expo-camera';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { CameraView, CameraType } from 'expo-camera';
 
 export class CameraService {
   private static cameraRef: any = null;
 
   static async requestPermissions() {
-    const { status } = await Camera.requestCameraPermissions();
+    const { status } = await Camera.Camera.requestCameraPermissionsAsync();
     return status === 'granted';
   }
 
@@ -24,6 +24,9 @@ export class CameraService {
 
       // Save to permanent storage
       const filename = `photo-${Date.now()}.jpg`;
+      if (!FileSystem.documentDirectory) {
+        throw new Error('Document directory is not available on this device.');
+      }
       const path = `${FileSystem.documentDirectory}${filename}`;
       await FileSystem.copyAsync({
         from: photo.uri,

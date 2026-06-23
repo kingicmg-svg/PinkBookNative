@@ -18,16 +18,15 @@ export type ViewProps = ThemeProps & DefaultView['props'];
 
 export function useThemeColor(
   props: { light?: string; dark?: string },
-  colorName: keyof typeof Colors.light & keyof typeof Colors.dark
+  colorName: string
 ) {
-  const theme = useColorScheme();
-  const colorFromProps = props[theme];
-
+  const theme = useColorScheme() ?? 'light';
+  const colorFromProps = props[theme as 'light' | 'dark'];
   if (colorFromProps) {
     return colorFromProps;
-  } else {
-    return Colors[theme][colorName];
   }
+  const palette = Colors as Record<string, any>;
+  return palette[colorName] ?? '#000000';
 }
 
 export function Text(props: TextProps) {
