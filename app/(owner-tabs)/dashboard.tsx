@@ -169,7 +169,7 @@ export default function DashboardScreen() {
 
   // Reload whenever the screen comes into focus so name/settings changes made
   // in Edit Profile are immediately reflected here.
-  useFocusEffect(load);
+  useFocusEffect(useCallback(() => { load(); }, [load]));
 
   const onRefresh = () => { setRefreshing(true); load(true); };
 
