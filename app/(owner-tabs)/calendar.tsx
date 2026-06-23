@@ -130,27 +130,33 @@ function BeforeAfterCapture({ booking, token }: { booking: any; token: string | 
   );
 }
 
+// ── DRow — detail row (must live at module scope, NOT inside BookingDetailModal,
+//    to prevent React from seeing a new component type on every render which
+//    causes "Expected static flag was missing"). ───────────────────────────────
+function DRow({ label, value, dm }: { label: string; value: string; dm: any }) {
+  if (!value) return null;
+  return (
+    <View style={dm.row}>
+      <Text style={dm.key}>{label}</Text>
+      <Text style={dm.val}>{value}</Text>
+    </View>
+  );
+}
+
 // ── Booking Detail Modal ────────────────────────────────────────────────────
 function BookingDetailModal({ booking, visible, onClose, onConfirm, onDeny, onStatusChange, token }:
   { booking: any; visible: boolean; onClose: ()=>void; onConfirm: ()=>void; onDeny: ()=>void; onStatusChange: (s:string)=>void; token: string | null }) {
-  if (!booking) return null;
+  // Hooks must be called unconditionally — never after an early return.
   const T = useTheme();
   const dm = React.useMemo(() => makeDetailModalStyles(T), [T]);
+
+  if (!booking) return null;
+
   const status    = booking.status || 'pending';
   const statusCol = STATUS_COLOR[status] || T.textSec;
   const isHair    = !!(booking.hairTexture || booking.hairType || booking.hairColors?.length);
   const hasAddons = booking.addons?.length > 0;
   const hasIntake = booking.intakeAnswers && Object.keys(booking.intakeAnswers).length > 0;
-
-  function DRow({ label, value }: { label: string; value: string }) {
-    if (!value) return null;
-    return (
-      <View style={dm.row}>
-        <Text style={dm.key}>{label}</Text>
-        <Text style={dm.val}>{value}</Text>
-      </View>
-    );
-  }
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
@@ -169,12 +175,12 @@ function BookingDetailModal({ booking, visible, onClose, onConfirm, onDeny, onSt
 
           <View style={dm.card}>
             <Text style={dm.sectionHeader}>APPOINTMENT</Text>
-            <DRow label="Service"  value={booking.serviceName || ''} />
-            <DRow label="Date"     value={booking.date || (booking.startsAt ? new Date(booking.startsAt).toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric' }) : '')} />
-            <DRow label="Time"     value={booking.time || (booking.startsAt ? new Date(booking.startsAt).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' }) : '')} />
-            <DRow label="Payment"  value={booking.paymentMethod || ''} />
-            {booking.price != null && <DRow label="Total" value={`$${Number(booking.price).toFixed(2)}`} />}
-            {booking.deposit > 0   && <DRow label="Deposit" value={`$${Number(booking.deposit).toFixed(2)}`} />}
+            <DRow label="Service"  value={booking.serviceName || ''} dm={dm} />
+            <DRow label="Date"     value={booking.date || (booking.startsAt ? new Date(booking.startsAt).toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric' }) : '')} dm={dm} />
+            <DRow label="Time"     value={booking.time || (booking.startsAt ? new Date(booking.startsAt).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' }) : '')} dm={dm} />
+            <DRow label="Payment"  value={booking.paymentMethod || ''} dm={dm} />
+            {booking.price != null && <DRow label="Total" value={`$${Number(booking.price).toFixed(2)}`} dm={dm} />}
+            {booking.deposit > 0   && <DRow label="Deposit" value={`$${Number(booking.deposit).toFixed(2)}`} dm={dm} />}
           </View>
 
           {hasAddons && (
@@ -187,9 +193,9 @@ function BookingDetailModal({ booking, visible, onClose, onConfirm, onDeny, onSt
           {isHair && (
             <View style={dm.card}>
               <Text style={dm.sectionHeader}>HAIR DETAILS</Text>
-              <DRow label="Texture"   value={booking.hairTexture || ''} />
-              <DRow label="Hair Type" value={booking.hairType    || ''} />
-              {booking.hairColors?.length > 0 && <DRow label="Colour(s)" value={booking.hairColors.join(', ')} />}
+              <DRow label="Texture"   value={booking.hairTexture || ''} dm={dm} />
+              <DRow label="Hair Type" value={booking.hairType    || ''} dm={dm} />
+              {booking.hairColors?.length > 0 && <DRow label="Colour(s)" value={booking.hairColors.join(', ')} dm={dm} />}
             </View>
           )}
 
